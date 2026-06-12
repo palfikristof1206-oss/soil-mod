@@ -37,55 +37,74 @@ function loadSavedMods(){
 }
 
 // =============================
-// 🧠 ELEMENT REGISTRY (REAL FIX)
+// 🧱 ELEMENT REGISTRY (FULL FIXED)
 // =============================
 
 if(!window.elements) window.elements = {};
 
 window.registerElement = function(name, data){
 
+    // CORE REGISTER
     elements[name] = data;
 
-    if(!elements.__registry){
-        Object.defineProperty(elements, "__registry", {
-            value: {},
-            writable: true,
-            enumerable: false
-        });
+    // CATEGORY SYSTEM FIX
+    if(!elements.__categories){
+        elements.__categories = {};
     }
 
-    elements.__registry[name] = true;
+    const cat = data.category || "uncategorized";
 
+    if(!elements.__categories[cat]){
+        elements.__categories[cat] = [];
+    }
+
+    if(!elements.__categories[cat].includes(name)){
+        elements.__categories[cat].push(name);
+    }
+
+    // FORCE SANDBOXELS UI REFRESH
     const refresh = () => {
         if(typeof window.rebuildPalette === "function") window.rebuildPalette();
         if(typeof window.updatePalette === "function") window.updatePalette();
+
+        window.dispatchEvent(new Event("resize"));
     };
 
     requestAnimationFrame(refresh);
     setTimeout(refresh, 50);
-    setTimeout(refresh, 200);
 
-    console.log("🧱 REGISTERED INTO REGISTRY:", name);
+    console.log("🧱 REGISTERED:", name, "→", cat);
 };
 
 // =============================
-// 🔁 FORCE REGISTRY SYNC LOOP
+// 🧠 OPTIONAL: MOD FORMAT CONVERTER (HOOK)
 // =============================
+// ha valaki sima formát ír:
+// sus_block = { ... }
+// akkor ezt átalakítja registerElement-re
 
-function forceRegistryCommit(){
+function compileMod(code){
 
-    if(!window.elements) return;
+    const lines = code.split("\n");
+    const out = [];
 
-    for(const key in elements){
-        if(!elements.__registry?.[key]){
-            window.registerElement(key, elements[key]);
+    for(let line of lines){
+
+        line = line.trim();
+
+        if(!line || line.startsWith("//")) continue;
+
+        const m = line.match(/^([a-zA-Z0-9_]+)\s*=\s*(\{[\s\S]*\})$/);
+
+        if(m){
+            out.push(`registerElement("${m[1]}", ${m[2]});`);
+        } else {
+            out.push(line);
         }
     }
 
-    console.log("💾 REGISTRY COMMIT DONE");
+    return out.join("\n");
 }
-
-setInterval(forceRegistryCommit, 2000);
 
 // =============================
 // FETCH
@@ -98,17 +117,21 @@ async function fetchMod(url){
 }
 
 // =============================
-// RUN MOD
+// RUN MOD (WITH COMPILER)
 // =============================
 
 function runMod(code, id){
+
     try {
+
+        const compiled = compileMod(code);
+
         const fn = new Function(
             "window",
             "elements",
             "registerElement",
             "console",
-            code
+            compiled
         );
 
         fn(window, window.elements, window.registerElement, console);
@@ -138,7 +161,9 @@ async function loadMod(url){
 
         if(ok){
             ModLoader.mods[id] = {url, code};
-            if(!ModLoader.loaded.includes(id)) ModLoader.loaded.push(id);
+            if(!ModLoader.loaded.includes(id)){
+                ModLoader.loaded.push(id);
+            }
         }
 
         updateUI();
@@ -161,7 +186,7 @@ async function loadAll(){
 }
 
 // =============================
-// AUTO RELOAD AFTER REFRESH
+// AUTO REAPPLY
 // =============================
 
 async function autoReapplyMods(){
@@ -172,7 +197,7 @@ async function autoReapplyMods(){
 }
 
 // =============================
-// UI
+// UI BUTTON
 // =============================
 
 const toggleBtn = document.createElement("div");
@@ -197,7 +222,7 @@ box-shadow:0 0 15px rgba(0,200,255,0.8);
 document.body.appendChild(toggleBtn);
 
 // =============================
-// FULL UI
+// UI
 // =============================
 
 function createUI(){
