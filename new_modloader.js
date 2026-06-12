@@ -1,8 +1,12 @@
 // =====================================
-// 🔥 Sandboxels Mod Loader V4 ENGINE (FIXED)
+// 🔥 Sandboxels Mod Loader V4 ULTIMATE
 // =====================================
 
-console.log("🔥 V4 ENGINE BOOTING...");
+console.log("🔥 V4 ULTIMATE BOOTING...");
+
+// =============================
+// STATE
+// =============================
 
 window.ModLoader = {
     mods: {},
@@ -10,30 +14,78 @@ window.ModLoader = {
     loaded: [],
     errors: [],
     disabled: new Set(),
-    graph: {},
+    graph: {}
 };
 
 window.MODS = window.MODS || [];
 
 // =============================
-// 🌌 ELEMENT REGISTRY FIX (KEY PART)
+// 💾 PERSISTENCE SYSTEM (FIX)
+// =============================
+
+const STORAGE_KEY = "sandboxels_mods_v4";
+
+function saveMods(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MODS));
+    console.log("💾 Mods saved");
+}
+
+function loadSavedMods(){
+    try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if(Array.isArray(data)){
+            MODS.length = 0;
+            MODS.push(...data);
+            console.log("📦 Loaded saved mods:", data.length);
+        }
+    } catch(e){
+        console.log("❌ Storage load failed");
+    }
+}
+
+// =============================
+// 🌌 GUI SAFETY FILTER (FIX INVALID GUI SPAM)
+// =============================
+
+const GUI_BLOCK = new Set([
+    "tpsButton",
+    "copyrightLabel",
+    "saves",
+    "savePromptTitle",
+    "modWarning",
+    "settingLabel-cheerful",
+    "settingLabel-worldgen",
+    "setting-worldgen-off"
+]);
+
+function safeGui(name){
+    if(GUI_BLOCK.has(name)){
+        console.warn("⚠ GUI blocked:", name);
+        return false;
+    }
+    return true;
+}
+
+// =============================
+// ELEMENT REGISTER (FIXED)
 // =============================
 
 window.registerElement = function(name, data){
+
     if(!window.elements) window.elements = {};
 
     elements[name] = data;
 
-    // force UI refresh (Sandboxels hack)
     if(window.updatePalette) window.updatePalette();
     if(window.rebuildPalette) window.rebuildPalette();
 
-    console.log("🧱 Registered element:", name);
+    console.log("🧱 Element registered:", name);
 };
 
 // =============================
 // FETCH MOD
 // =============================
+
 async function fetchMod(url){
     const res = await fetch(url);
     if(!res.ok) throw new Error("Fetch failed " + res.status);
@@ -41,8 +93,9 @@ async function fetchMod(url){
 }
 
 // =============================
-// SAFE RUN
+// RUN MOD SAFE
 // =============================
+
 function runMod(code, id){
     try {
         const fn = new Function(
@@ -51,10 +104,11 @@ function runMod(code, id){
             "behaviors",
             "registerElement",
             "console",
+            "safeGui",
             code
         );
 
-        fn(window, window.elements, window.behaviors, window.registerElement, console);
+        fn(window, window.elements, window.behaviors, window.registerElement, console, safeGui);
 
         console.log("✅ MOD LOADED:", id);
         return true;
@@ -69,9 +123,11 @@ function runMod(code, id){
 // =============================
 // LOAD MOD
 // =============================
+
 async function loadMod(url){
 
     try {
+
         console.log("⬇ Loading:", url);
 
         const code = await fetchMod(url);
@@ -80,8 +136,15 @@ async function loadMod(url){
         const ok = runMod(code, id);
 
         if(ok){
-            ModLoader.mods[id] = {url, code, enabled:true};
-            ModLoader.loaded.push(id);
+            ModLoader.mods[id] = {
+                url,
+                code,
+                enabled: true
+            };
+
+            if(!ModLoader.loaded.includes(id)){
+                ModLoader.loaded.push(id);
+            }
         }
 
         updateUI();
@@ -95,6 +158,7 @@ async function loadMod(url){
 // =============================
 // LOAD ALL
 // =============================
+
 async function loadAll(){
     for(const url of MODS){
         await loadMod(url);
@@ -104,6 +168,7 @@ async function loadAll(){
 // =============================
 // TOGGLE MOD
 // =============================
+
 function toggleMod(id){
     const mod = ModLoader.mods[id];
     if(!mod) return;
@@ -113,8 +178,9 @@ function toggleMod(id){
 }
 
 // =============================
-// HOT RELOAD
+// HOT RELOAD (SAFE)
 // =============================
+
 async function reloadMod(id){
     const mod = ModLoader.mods[id];
     if(!mod) return;
@@ -124,7 +190,7 @@ async function reloadMod(id){
 }
 
 // =============================
-// 🌌 UI TOGGLE BUTTON (FIXED)
+// 🌌 UI TOGGLE BUTTON
 // =============================
 
 const toggleBtn = document.createElement("div");
@@ -153,15 +219,16 @@ document.body.appendChild(toggleBtn);
 // =============================
 // UI STATE
 // =============================
+
 window.__modUIOpen = true;
 
 // =============================
 // FULLSCREEN UI
 // =============================
+
 function createUI(){
 
     const ui = document.createElement("div");
-
     ui.id = "modUI";
 
     ui.style = `
@@ -177,14 +244,14 @@ function createUI(){
     ui.innerHTML = `
         <div style="width:320px;padding:10px;border-right:1px solid #222;">
 
-            <h2>🔥 MOD LOADER V4</h2>
+            <h2>🔥 MOD LOADER V4 ULTIMATE</h2>
 
             <input id="url" placeholder="GitHub RAW mod"
                 style="width:100%;padding:6px;"><br><br>
 
             <button id="add">ADD</button>
             <button id="load">LOAD ALL</button>
-            <button id="clear">CLEAR LOG</button>
+            <button id="clear">CLEAR</button>
 
             <hr>
 
@@ -198,7 +265,7 @@ function createUI(){
         </div>
 
         <div style="flex:1;padding:10px;">
-            <h3>📡 LOG CONSOLE</h3>
+            <h3>📡 CONSOLE</h3>
             <pre id="console"></pre>
         </div>
     `;
@@ -207,7 +274,10 @@ function createUI(){
 
     document.getElementById("add").onclick = () => {
         const v = document.getElementById("url").value;
-        if(v) MODS.push(v);
+        if(v){
+            MODS.push(v);
+            saveMods(); // 💾 IMPORTANT FIX
+        }
         updateUI();
     };
 
@@ -221,6 +291,7 @@ function createUI(){
 // =============================
 // UI UPDATE
 // =============================
+
 function updateUI(){
 
     const box = document.getElementById("mods");
@@ -251,6 +322,7 @@ function updateUI(){
 // =============================
 // CONSOLE HOOK
 // =============================
+
 (function(){
     const log = console.log;
     console.log = function(...args){
@@ -261,21 +333,25 @@ function updateUI(){
 })();
 
 // =============================
-// TOGGLE UI
+// UI TOGGLE
 // =============================
+
 toggleBtn.onclick = () => {
 
     const ui = document.getElementById("modUI");
-
     if(!ui) return;
 
     window.__modUIOpen = !window.__modUIOpen;
-
     ui.style.display = window.__modUIOpen ? "flex" : "none";
 };
 
 // =============================
-// START
+// INIT
 // =============================
+
+loadSavedMods();   // 💾 AUTO RESTORE
 createUI();
-console.log("🔥 V4 ENGINE READY");
+
+setTimeout(loadAll, 1000);
+
+console.log("🔥 V4 ULTIMATE READY");
