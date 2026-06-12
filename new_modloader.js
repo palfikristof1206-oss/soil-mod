@@ -1,15 +1,15 @@
 // =====================================
-// Sandboxels Mod Loader V2.1 (CLEAN UI)
+// Sandboxels Mod Loader V2.1
 // =====================================
 
-console.log("Mod Loader V2.1 initializing...");
+console.log("🔥 Mod Loader V2.1 booting...");
 
 // =============================
 // GLOBAL STATE
 // =============================
 
 window.ModLoader = {
-    mods: {},
+    mods: {},        // id -> mod
     order: [],
     loaded: [],
     disabled: [],
@@ -17,17 +17,23 @@ window.ModLoader = {
     conflicts: [],
 };
 
-// =============================
-// CONFIG
-// =============================
-
-const MODS = [
-    // "https://raw.githubusercontent.com/user/repo/main/mod.js"
-];
+// legacy sync support
+window.MODS = window.MODS || [];
 
 // =============================
-// FETCH
+// CORE CONFIG
 // =============================
+
+const CONFIG = {
+    autoLoad: true,
+    debug: true,
+};
+
+// =============================
+// UTIL
+// =============================
+
+const log = (...a) => CONFIG.debug && console.log("[ML]", ...a);
 
 async function fetchText(url){
     const res = await fetch(url);
@@ -35,7 +41,7 @@ async function fetchText(url){
 }
 
 // =============================
-// VERSION DETECT
+// VERSION DETECTOR
 // =============================
 
 function detectVersion(code){
@@ -46,19 +52,7 @@ function detectVersion(code){
 }
 
 // =============================
-// MANIFEST
-// =============================
-
-function parseManifest(code){
-    try {
-        const match = code.match(/\/\*\s*MOD_MANIFEST\s*([\s\S]*?)\*\//);
-        if(match) return JSON.parse(match[1]);
-    } catch(e){}
-    return null;
-}
-
-// =============================
-// SAFE RUN
+// SAFE EXEC
 // =============================
 
 function runCode(code, id){
@@ -67,7 +61,7 @@ function runCode(code, id){
         return true;
     } catch(e){
         ModLoader.errors.push({id, error:e});
-        console.log("Mod error:", id, e);
+        console.error("[ML ERROR]", id, e);
         return false;
     }
 }
@@ -76,48 +70,52 @@ function runCode(code, id){
 // LOAD MOD
 // =============================
 
-async function loadMod(url, id = null){
+async function loadMod(url, id = url){
+
+    log("Loading:", url);
 
     try {
-
         const code = await fetchText(url);
-        const manifest = parseManifest(code);
         const version = detectVersion(code);
 
-        id = id || url;
-
-        ModLoader.mods[id] = {
+        const mod = {
             id,
             url,
             code,
-            manifest,
             version,
-            enabled: true,
-            dependencies: manifest?.dependencies || []
+            enabled: true
         };
+
+        ModLoader.mods[id] = mod;
 
         const ok = runCode(code, id);
 
         if(ok){
             ModLoader.loaded.push(id);
-            console.log("Loaded:", id, version);
+            log("Loaded:", id, "version:", version);
         }
+
+        updateUI();
 
     } catch(e){
         ModLoader.errors.push({url, error:e});
+        console.error("[ML FETCH ERROR]", url, e);
     }
 }
 
 // =============================
-// LOAD ALL
+// LOAD ALL (SYNC WITH LEGACY MODS)
 // =============================
 
 async function loadAllMods(){
-    console.log("Loading mods...");
-    for(const url of MODS){
+
+    const list = [...window.MODS];
+
+    log("Loading all mods:", list.length);
+
+    for(let url of list){
         await loadMod(url);
     }
-    console.log("Loaded mods:", ModLoader.loaded.length);
 }
 
 // =============================
@@ -125,124 +123,155 @@ async function loadAllMods(){
 // =============================
 
 function toggleMod(id){
+
     const mod = ModLoader.mods[id];
     if(!mod) return;
 
     mod.enabled = !mod.enabled;
+
+    log((mod.enabled ? "Enabled" : "Disabled"), id);
+
+    if(!mod.enabled){
+        ModLoader.disabled.push(id);
+    } else {
+        loadMod(mod.url, id);
+    }
+
+    updateUI();
 }
 
 // =============================
-// UI (🔥 10★ GLASS DESIGN)
+// CONSOLE MENU (🔥 FEATURE)
+// =============================
+
+window.ModConsole = {
+
+    add(url){
+        window.MODS.push(url);
+        log("Added via console:", url);
+    },
+
+    load(){
+        loadAllMods();
+    },
+
+    list(){
+        console.table(ModLoader.mods);
+    },
+
+    clear(){
+        window.MODS.length = 0;
+        log("Cleared MODS list");
+    },
+
+    reload(id){
+        if(id){
+            loadMod(ModLoader.mods[id]?.url, id);
+        } else {
+            location.reload();
+        }
+    }
+};
+
+console.log(`
+🔥 MOD CONSOLE READY:
+- ModConsole.add(url)
+- ModConsole.load()
+- ModConsole.list()
+- ModConsole.clear()
+- ModConsole.reload(id)
+`);
+
+// =============================
+// UI
 // =============================
 
 function createUI(){
 
     const ui = document.createElement("div");
 
-    ui.style.cssText = `
+    ui.style = `
         position:fixed;
-        bottom:12px;
-        left:12px;
+        bottom:10px;
+        left:10px;
         width:260px;
-        max-height:320px;
-        overflow:auto;
-
-        background:rgba(20,20,20,0.65);
-        backdrop-filter: blur(12px);
-
-        border:1px solid rgba(255,255,255,0.12);
-        border-radius:14px;
-
+        background:rgba(10,10,10,0.92);
         color:white;
         font-family:monospace;
-        z-index:999999;
-
-        box-shadow:0 8px 25px rgba(0,0,0,0.4);
+        border-radius:12px;
         padding:10px;
+        z-index:999999;
+        box-shadow:0 0 15px rgba(0,0,0,0.5);
     `;
 
     ui.innerHTML = `
-        <div style="
-            font-size:14px;
-            font-weight:bold;
-            margin-bottom:8px;
-            color:#00ffcc;
-        ">
-            🔥 Mod Loader V2.1
-        </div>
+        <div style="font-weight:bold;">🔥 Mod Loader V2.1</div>
 
-        <button id="loadModsBtn">Load Mods</button>
-        <button id="reloadBtn">Reload</button>
-        <button id="logsBtn">Logs</button>
+        <input id="modUrl" placeholder="Paste mod URL..." 
+            style="width:100%; margin-top:8px; padding:5px;" />
 
-        <hr style="border:0;border-top:1px solid #333;margin:8px 0;">
+        <button id="addMod" style="width:100%; margin-top:5px;">➕ Add Mod</button>
+        <button id="loadMods" style="width:100%; margin-top:5px;">⚡ Load Mods</button>
+        <button id="reload" style="width:100%; margin-top:5px;">🔄 Reload Page</button>
 
-        <div id="modList" style="font-size:12px;"></div>
+        <hr style="margin:8px 0;">
+
+        <div id="modList" style="font-size:12px; max-height:120px; overflow:auto;"></div>
     `;
 
     document.body.appendChild(ui);
 
-    // buttons
-    document.getElementById("loadModsBtn").onclick = loadAllMods;
-    document.getElementById("reloadBtn").onclick = () => location.reload();
-
-    document.getElementById("logsBtn").onclick = () => {
-        alert(
-            "LOADED:\n" + ModLoader.loaded.join("\n") +
-            "\n\nERRORS:\n" + JSON.stringify(ModLoader.errors, null, 2)
-        );
+    // events
+    document.getElementById("addMod").onclick = () => {
+        const url = document.getElementById("modUrl").value;
+        if(url){
+            window.MODS.push(url);
+            updateUI();
+            log("Added:", url);
+        }
     };
 
-    // LIVE MOD LIST
-    setInterval(() => {
+    document.getElementById("loadMods").onclick = loadAllMods;
+    document.getElementById("reload").onclick = () => location.reload();
 
-        const list = document.getElementById("modList");
-        if(!list) return;
-
-        let html = "";
-
-        for(const id in ModLoader.mods){
-            const m = ModLoader.mods[id];
-
-            html += `
-                <div style="
-                    padding:4px;
-                    margin:4px 0;
-                    border-radius:6px;
-                    background:rgba(255,255,255,0.05);
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                ">
-                    <span>
-                        ${m.enabled ? "🟢" : "🔴"} ${id}
-                    </span>
-
-                    <button onclick="toggleMod('${id}')"
-                        style="
-                            font-size:10px;
-                            padding:2px 6px;
-                        ">
-                        toggle
-                    </button>
-                </div>
-            `;
-        }
-
-        list.innerHTML = html;
-
-    }, 500);
+    updateUI();
 }
 
 // =============================
-// INIT
+// UI UPDATE
 // =============================
 
-function initModLoader(){
+function updateUI(){
+
+    const list = document.getElementById("modList");
+    if(!list) return;
+
+    let html = "<b>Mods:</b><br>";
+
+    for(let id in ModLoader.mods){
+        const m = ModLoader.mods[id];
+
+        html += `
+            <div style="margin-top:4px; cursor:pointer;"
+                 onclick="toggleMod('${id}')">
+                ${m.enabled ? "🟢" : "🔴"} ${id}
+            </div>
+        `;
+    }
+
+    list.innerHTML = html;
+}
+
+// =============================
+// START
+// =============================
+
+function init(){
     createUI();
-    setTimeout(loadAllMods, 1000);
+
+    if(CONFIG.autoLoad){
+        setTimeout(loadAllMods, 1000);
+    }
 }
 
-initModLoader();
-
-console.log("Mod Loader V2.1 READY");
+init();
