@@ -1,8 +1,8 @@
 // =====================================
-// 🔥 Sandboxels Mod Loader V3 ENGINE
+// 🌌 Sandboxels Mod Loader V3.1 FIXED
 // =====================================
 
-console.log("🌌 Mod Loader V3 ENGINE booting...");
+console.log("🌌 V3.1 FIXED ENGINE booting...");
 
 // =============================
 // STATE
@@ -13,71 +13,34 @@ window.ModLoader = {
     loaded: [],
     errors: [],
     disabled: [],
-    store: [],
 };
 
-// MOD LIST (legacy support)
 window.MODS = window.MODS || [];
-
-// =============================
-// SANDBOX API (IMPORTANT)
-// =============================
-
-window.ModAPI = {
-    registerElement(name, data){
-        if(window.elements && !elements[name]){
-            elements[name] = data;
-        }
-    },
-    log(msg){
-        console.log("[MOD]", msg);
-    }
-};
 
 // =============================
 // FETCH
 // =============================
 
-async function fetchText(url){
+async function fetchMod(url){
     const res = await fetch(url);
-    if(!res.ok) throw new Error("Fetch fail " + res.status);
+    if(!res.ok) throw new Error("Fetch failed " + res.status);
     return await res.text();
 }
 
 // =============================
-// VERSION DETECT
+// ⭐ REAL SANDBOX EXEC (IMPORTANT FIX)
 // =============================
+// Sandboxels kompatibilis global eval
 
-function detectVersion(code){
-    if(code.includes("v3.1")) return "v3.1";
-    if(code.includes("v3.0")) return "v3.0";
-    if(code.includes("EXPANSION")) return "pack";
-    return "unknown";
-}
-
-// =============================
-// MANIFEST PARSER
-// =============================
-
-function parseManifest(code){
-    try{
-        const m = code.match(/\/\*\s*MOD_MANIFEST([\s\S]*?)\*\//);
-        if(m) return JSON.parse(m[1]);
-    }catch(e){}
-    return null;
-}
-
-// =============================
-// EXEC ENGINE (SAFE WRAP)
-// =============================
-
-function run(code, id){
+function runMod(code, id){
     try {
-        const fn = new Function("ModAPI", code);
-        fn(window.ModAPI);
 
-        console.log("✅ Loaded:", id);
+        // direct eval = Sandboxels kompatibilitás
+        (0, eval)(code);
+
+        console.log("✅ LOADED:", id);
         return true;
+
     } catch(e){
         console.error("❌ MOD ERROR:", id, e);
         ModLoader.errors.push({id, error:e});
@@ -93,32 +56,19 @@ async function loadMod(url){
 
     try {
 
-        const code = await fetchText(url);
+        console.log("⬇ Loading:", url);
+
+        const code = await fetchMod(url);
+
         const id = url.split("/").pop();
 
-        const manifest = parseManifest(code);
-        const version = detectVersion(code);
+        const ok = runMod(code, id);
 
-        const mod = {
-            id,
+        ModLoader.mods[id] = {
             url,
             code,
-            manifest,
-            version,
-            enabled: true,
-            deps: manifest?.deps || []
+            enabled: true
         };
-
-        ModLoader.mods[id] = mod;
-
-        // dependency warning
-        for(const d of mod.deps){
-            if(!ModLoader.mods[d]){
-                console.warn("⚠ Missing dependency:", d);
-            }
-        }
-
-        const ok = run(code, id);
 
         if(ok){
             ModLoader.loaded.push(id);
@@ -143,55 +93,53 @@ async function loadAll(){
 }
 
 // =============================
-// TOGGLE MOD
+// TOGGLE
 // =============================
 
-function toggleMod(id){
+function toggle(id){
     const m = ModLoader.mods[id];
     if(!m) return;
 
     m.enabled = !m.enabled;
 
-    if(!m.enabled){
-        ModLoader.disabled.push(id);
-    }
+    console.log(m.enabled ? "🟢 ENABLED" : "🔴 DISABLED", id);
 
     updateUI();
 }
 
 // =============================
-// HOT RELOAD
-// =============================
-
-async function reloadMod(id){
-    const m = ModLoader.mods[id];
-    if(!m) return;
-    await loadMod(m.url);
-}
-
-// =============================
-// 🌌 GALAXY UI
+// 🌌 GALAXY UI (REAL STYLE FIX)
 // =============================
 
 function createUI(){
 
     const btn = document.createElement("div");
-    btn.innerHTML = "🌌 MODS";
+    btn.innerText = "🌌 MODS";
     btn.style = `
         position:fixed;
-        bottom:15px;
-        left:15px;
-        background:#0b0b0b;
-        color:#00ffe5;
-        padding:12px;
-        border-radius:50px;
-        cursor:pointer;
+        bottom:18px;
+        left:18px;
+        padding:14px 18px;
+        border-radius:999px;
+        background:linear-gradient(45deg,#0ff,#f0f,#0ff);
+        color:black;
+        font-weight:bold;
         font-family:monospace;
+        cursor:pointer;
         z-index:999999;
-        box-shadow:0 0 20px #00ffe5;
+        box-shadow:0 0 25px #0ff;
+        animation:pulse 2s infinite;
     `;
 
-    document.body.appendChild(btn);
+    const style = document.createElement("style");
+    style.textContent = `
+    @keyframes pulse {
+        0% { transform:scale(1); box-shadow:0 0 10px #0ff; }
+        50% { transform:scale(1.05); box-shadow:0 0 30px #f0f; }
+        100% { transform:scale(1); box-shadow:0 0 10px #0ff; }
+    }
+    `;
+    document.head.appendChild(style);
 
     const panel = document.createElement("div");
     panel.style = `
@@ -200,20 +148,21 @@ function createUI(){
         left:0;
         width:100vw;
         height:100vh;
-        background:radial-gradient(circle,#050510,#000);
-        color:white;
         display:none;
         z-index:999998;
+        background:radial-gradient(circle at top,#111,#000);
+        backdrop-filter:blur(10px);
+        color:white;
         font-family:monospace;
         overflow:auto;
     `;
 
     panel.innerHTML = `
         <div style="padding:20px;">
-            <h2>🌌 MOD LOADER V3 ENGINE</h2>
+            <h1>🌌 MOD LOADER V3.1</h1>
 
             <input id="url" placeholder="GitHub RAW URL"
-            style="width:70%;padding:8px;">
+                style="width:70%;padding:10px;">
 
             <button id="add">ADD</button>
             <button id="load">LOAD ALL</button>
@@ -222,10 +171,12 @@ function createUI(){
 
             <div id="list"></div>
 
-            <pre id="debug"></pre>
+            <h3>📜 LOGS</h3>
+            <pre id="log"></pre>
         </div>
     `;
 
+    document.body.appendChild(btn);
     document.body.appendChild(panel);
 
     btn.onclick = () => {
@@ -241,19 +192,22 @@ function createUI(){
 
     panel.querySelector("#load").onclick = loadAll;
 
+    window._panel = panel;
+
     updateUI();
 }
 
 // =============================
-// UI UPDATE
+// UI UPDATE + QOL
 // =============================
 
 function updateUI(){
 
-    const list = document.querySelector("#list");
-    const debug = document.querySelector("#debug");
+    const panel = window._panel;
+    if(!panel) return;
 
-    if(!list) return;
+    const list = panel.querySelector("#list");
+    const log = panel.querySelector("#log");
 
     list.innerHTML = "";
 
@@ -261,20 +215,20 @@ function updateUI(){
         const m = ModLoader.mods[id];
 
         const div = document.createElement("div");
+        div.style = "margin:6px 0;";
+
         div.innerHTML = `
             ${m.enabled ? "🟢" : "🔴"} ${id}
-            <button onclick="toggleMod('${id}')">toggle</button>
+            <button onclick="(${toggle.toString()})('${id}')">toggle</button>
         `;
 
         list.appendChild(div);
     }
 
-    if(debug){
-        debug.textContent =
+    log.textContent =
 `Loaded: ${ModLoader.loaded.length}
 Errors: ${ModLoader.errors.length}
 Mods: ${Object.keys(ModLoader.mods).length}`;
-    }
 }
 
 // =============================
@@ -283,4 +237,4 @@ Mods: ${Object.keys(ModLoader.mods).length}`;
 
 createUI();
 
-console.log("🌌 MOD LOADER V3 ENGINE READY");
+console.log("🌌 V3.1 FIX READY");
