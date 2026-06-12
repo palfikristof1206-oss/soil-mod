@@ -1,38 +1,32 @@
-console.log("🔥 MODLOADER V9 ULTIMATE BOOTING...");
+console.log("🔥 MODLOADER V10 ENGINE CORE BOOTING...");
 
 // =============================
-// V9 CORE STATE
+// GLOBAL STATE
 // =============================
 
 window.ModLoader = {
     name: "Sandboxels Mod Loader",
-    version: "V9-ULTIMATE",
+    version: "V10-ENGINE",
     authors: ["Sussy baka"],
     features: [
-        "Author List",
-        "Feature List",
-        "Toggle Button",
-        "Console Panel",
-        "Registry Sync",
-        "Category Sync",
-        "Auto Reload",
-        "LocalStorage Save",
-        "Palette Refresh",
-        "Mod List UI",
-        "Sandbox API Bridge",
-        "Execution Debugger",
-        "Fetch Logger"
+        "Stable Console",
+        "Runtime Registry Core",
+        "Auto Sync Engine",
+        "Safe UI Bridge",
+        "No Recursion Logging",
+        "Crash Proof Loader"
     ],
     mods: {},
     loaded: [],
-    errors: []
+    errors: [],
+    runtimeRegistry: {}
 };
 
 window.MODS = window.MODS || [];
-const STORAGE_KEY = "sandboxels_mods_v9";
+const STORAGE_KEY = "sandboxels_mods_v10";
 
 // =============================
-// ELEMENT SYSTEM INIT
+// ELEMENT SYSTEM (ENGINE CORE)
 // =============================
 
 window.elements = window.elements || {};
@@ -40,113 +34,148 @@ window.elements.__registry = window.elements.__registry || {};
 window.elements.__categories = window.elements.__categories || {};
 
 // =============================
-// SAVE / LOAD (ROBUST)
+// 🔥 SAFE CONSOLE (NO BREAK)
 // =============================
 
-function saveMods() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.MODS));
-        console.log("💾 SAVED MODS:", window.MODS.length);
-    } catch (e) {
-        console.error("SAVE FAIL", e);
-    }
-}
+(function setupSafeConsole(){
 
-function loadSavedMods() {
-    try {
-        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (Array.isArray(data)) {
-            window.MODS = data;
-            console.log("📦 LOADED MODS:", data.length);
-        }
-    } catch (e) {
-        console.error("LOAD FAIL", e);
-    }
-}
-
-// =============================
-// SAFE REGISTER (SANDBOXELS COMPATIBLE)
-// =============================
-
-window.registerElement = function (name, data) {
-    if (!name || !data) return;
-
-    window.elements[name] = data;
-
-    const cat = data.category || "uncategorized";
-
-    window.elements.__registry[name] = {
-        ts: Date.now(),
-        category: cat
+    const native = {
+        log: console.log.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
     };
 
-    if (!window.elements.__categories[cat]) {
+    function write(type, args){
+        const box = document.getElementById("console");
+
+        const msg = `[${type}] ` + args.map(a =>
+            typeof a === "object" ? JSON.stringify(a) : a
+        ).join(" ");
+
+        // safe DOM write
+        if(box){
+            box.textContent += msg + "\n";
+            box.scrollTop = box.scrollHeight;
+        }
+    }
+
+    console.log = (...args) => {
+        native.log(...args);
+        write("LOG", args);
+    };
+
+    console.warn = (...args) => {
+        native.warn(...args);
+        write("WARN", args);
+    };
+
+    console.error = (...args) => {
+        native.error(...args);
+        write("ERROR", args);
+    };
+
+})();
+
+// =============================
+// 💾 SAVE / LOAD
+// =============================
+
+function saveMods(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(window.MODS));
+    console.log("💾 saved mods:", window.MODS.length);
+}
+
+function loadSavedMods(){
+    try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if(Array.isArray(data)){
+            window.MODS = data;
+            console.log("📦 loaded mods:", data.length);
+        }
+    } catch(e){
+        console.error("load fail", e);
+    }
+}
+
+// =============================
+// 🔥 RUNTIME REGISTRY CORE (MAIN FIX)
+// =============================
+
+function syncRuntimeRegistry(name, data){
+    window.ModLoader.runtimeRegistry[name] = {
+        data,
+        ts: Date.now()
+    };
+}
+
+// =============================
+// REGISTER ELEMENT (TRUE ENGINE SOURCE)
+// =============================
+
+window.registerElement = function(name, data){
+
+    if(!name || !data) return;
+
+    // ENGINE STORE
+    window.elements[name] = data;
+
+    // REGISTRY
+    window.elements.__registry[name] = {
+        ts: Date.now(),
+        category: data.category || "uncategorized"
+    };
+
+    // RUNTIME MIRROR (IMPORTANT FIX)
+    syncRuntimeRegistry(name, data);
+
+    // CATEGORY SYNC
+    const cat = data.category || "uncategorized";
+
+    if(!window.elements.__categories[cat]){
         window.elements.__categories[cat] = [];
     }
 
-    if (!window.elements.__categories[cat].includes(name)) {
+    if(!window.elements.__categories[cat].includes(name)){
         window.elements.__categories[cat].push(name);
     }
 
-    console.log("🧱 REGISTERED:", name);
+    console.log("🧱 registered:", name);
 };
 
 // =============================
-// UI REFRESH ENGINE
+// UI REFRESH SAFE
 // =============================
 
-function refreshUI() {
+function refreshUI(){
     try {
         window.rebuildPalette?.();
         window.updatePalette?.();
         window.dispatchEvent(new Event("resize"));
-    } catch (e) {
-        console.error("UI REFRESH FAIL", e);
+    } catch(e){
+        console.error("refresh fail", e);
     }
 }
 
 // =============================
-// FETCHER (DEBUG HEAVY)
+// FETCH MOD
 // =============================
 
-async function fetchMod(url) {
-    console.log("🌐 FETCH START:", url);
+async function fetchMod(url){
+    console.log("🌐 fetch:", url);
 
-    try {
-        const res = await fetch(url);
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("HTTP " + res.status);
 
-        console.log("🌐 STATUS:", res.status);
-
-        if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-        }
-
-        const txt = await res.text();
-
-        console.log("📦 MOD SIZE:", txt.length);
-
-        return txt;
-
-    } catch (e) {
-        console.error("FETCH FAIL:", url, e);
-        throw e;
-    }
+    return await res.text();
 }
 
 // =============================
-// COMPILER (RAW PASS)
+// RUN MOD (SAFE EXECUTION)
 // =============================
 
-function compileMod(code) {
-    return code; // Sandboxels mod = raw JS
-}
-
-// =============================
-// RUNNER (FIXED CONTEXT)
-// =============================
-
-function runMod(code, id) {
+function runMod(code, id){
     try {
+
         const fn = new Function(
             "window",
             "elements",
@@ -164,35 +193,36 @@ function runMod(code, id) {
             console
         );
 
-        console.log("✅ LOADED:", id);
+        console.log("✅ loaded:", id);
         return true;
 
-    } catch (e) {
-        console.error("❌ MOD ERROR:", id, e);
-        window.ModLoader.errors.push({ id, error: e });
+    } catch(e){
+        console.error("❌ mod error:", id, e);
+        window.ModLoader.errors.push({id, error:e});
         return false;
     }
 }
 
 // =============================
-// LOAD MOD (CORRECT PIPELINE)
+// LOAD MOD
 // =============================
 
-async function loadMod(url) {
+async function loadMod(url){
     try {
+
         const code = await fetchMod(url);
         const id = url.split("/").pop();
 
         const ok = runMod(code, id);
 
-        if (ok) {
+        if(ok){
             window.ModLoader.mods[id] = {
                 url,
                 code,
-                time: Date.now()
+                ts: Date.now()
             };
 
-            if (!window.ModLoader.loaded.includes(id)) {
+            if(!window.ModLoader.loaded.includes(id)){
                 window.ModLoader.loaded.push(id);
             }
         }
@@ -201,8 +231,8 @@ async function loadMod(url) {
         updateUI();
         updateLoaderInfo();
 
-    } catch (e) {
-        console.error("LOAD FAIL:", url, e);
+    } catch(e){
+        console.error("load fail:", url, e);
     }
 }
 
@@ -210,42 +240,34 @@ async function loadMod(url) {
 // LOAD ALL
 // =============================
 
-async function loadAll() {
-    console.log("🚀 LOADING MODS...");
-    for (const url of window.MODS) {
+async function loadAll(){
+    console.log("🚀 loading mods...");
+    for(const url of window.MODS){
         await loadMod(url);
     }
-    console.log("✅ DONE");
+    console.log("✅ done");
 }
 
 // =============================
-// AUTO RELOAD
+// FORCE SYNC (ENGINE BACKUP)
 // =============================
 
-async function autoReloadMods() {
-    console.log("♻ AUTO RELOAD");
-    await loadAll();
-}
+function forceRegistryCommit(){
+    for(const key in window.elements){
+        if(key.startsWith("__")) continue;
 
-// =============================
-// FORCE SYNC ENGINE
-// =============================
-
-function forceRegistryCommit() {
-    for (const key in window.elements) {
-        if (key.startsWith("__")) continue;
-        if (!window.elements.__registry[key]) {
+        if(!window.elements.__registry[key]){
             window.registerElement(key, window.elements[key]);
         }
     }
 }
 
 // =============================
-// TOGGLE BUTTON
+// TOGGLE UI
 // =============================
 
-function createToggle() {
-    if (document.getElementById("modToggle")) return;
+function createToggle(){
+    if(document.getElementById("modToggle")) return;
 
     const btn = document.createElement("button");
     btn.id = "modToggle";
@@ -260,29 +282,27 @@ function createToggle() {
         background:#111;
         color:white;
         border:1px solid #333;
-        cursor:pointer;
     `;
 
     btn.onclick = () => {
         const ui = document.getElementById("modUI");
-        if (!ui) return;
-        ui.style.display = ui.style.display === "none" ? "flex" : "none";
+        if(ui) ui.style.display = ui.style.display === "none" ? "flex" : "none";
     };
 
     document.body.appendChild(btn);
 }
 
 // =============================
-// LOADER INFO PANEL
+// LOADER INFO
 // =============================
 
-function updateLoaderInfo() {
+function updateLoaderInfo(){
     const box = document.getElementById("loaderInfo");
-    if (!box) return;
+    if(!box) return;
 
     box.innerHTML = `
         <h2>${window.ModLoader.name}</h2>
-        <div>Version: ${window.ModLoader.version}</div>
+        <div>v${window.ModLoader.version}</div>
         <hr>
         <b>Authors</b><br>
         ${window.ModLoader.authors.map(a => "• " + a).join("<br>")}
@@ -293,11 +313,11 @@ function updateLoaderInfo() {
 }
 
 // =============================
-// UI CREATE
+// UI
 // =============================
 
-function createUI() {
-    if (document.getElementById("modUI")) return;
+function createUI(){
+    if(document.getElementById("modUI")) return;
 
     const ui = document.createElement("div");
     ui.id = "modUI";
@@ -317,10 +337,7 @@ function createUI() {
             <div id="loaderInfo"></div>
             <hr>
 
-            <input id="url" style="width:100%;padding:6px;" placeholder="mod url">
-
-            <br><br>
-
+            <input id="url" style="width:100%;padding:6px;">
             <button id="addMod">ADD</button>
             <button id="loadMods">LOAD</button>
 
@@ -328,8 +345,7 @@ function createUI() {
             <div id="mods"></div>
         </div>
 
-        <div style="flex:1;padding:10px;overflow:auto;">
-            <h3>Console</h3>
+        <div style="flex:1;padding:10px;">
             <pre id="console"></pre>
         </div>
     `;
@@ -338,9 +354,9 @@ function createUI() {
 
     document.getElementById("addMod").onclick = () => {
         const url = document.getElementById("url").value.trim();
-        if (!url) return;
+        if(!url) return;
 
-        if (!window.MODS.includes(url)) {
+        if(!window.MODS.includes(url)){
             window.MODS.push(url);
             saveMods();
             updateUI();
@@ -354,15 +370,15 @@ function createUI() {
 // UI UPDATE
 // =============================
 
-function updateUI() {
+function updateUI(){
     const box = document.getElementById("mods");
-    if (!box) return;
+    if(!box) return;
 
     box.innerHTML = "";
 
-    window.MODS.forEach(url => {
+    window.MODS.forEach(u => {
         const div = document.createElement("div");
-        div.textContent = "🟢 " + url;
+        div.textContent = "🟢 " + u;
         box.appendChild(div);
     });
 }
@@ -371,7 +387,7 @@ function updateUI() {
 // BOOT
 // =============================
 
-async function boot() {
+async function boot(){
     loadSavedMods();
     createUI();
     createToggle();
@@ -382,7 +398,7 @@ async function boot() {
 
     setInterval(forceRegistryCommit, 2000);
 
-    console.log("🔥 MODLOADER V9 READY");
+    console.log("🔥 V10 ENGINE READY (REGISTRY ACTIVE)");
 }
 
 boot();
