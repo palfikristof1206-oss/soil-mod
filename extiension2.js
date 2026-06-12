@@ -1,185 +1,246 @@
 // =====================================
-// Soil Expansion v3.1 - ADVANCED PACK
+// Soil Expansion v3.1 - FIXED ADVANCED PACK
 // =====================================
 
-log("Soil Expansion v3.1 loading...");
+console.log("Soil Expansion v3.1 FIX loading...");
+
+// safe wrapper
+const safe = (fn) => { try { fn(); } catch(e){ console.log("Soil v3.1 error:", e); } };
 
 // =====================================
-// 🌱 ROOT SYSTEM (GYÖKÉRHÁLÓ)
+// 🌱 ROOT SYSTEM (SAFE)
 // =====================================
+
+safe(() => {
 
 function rootSpread(pixel){
     let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
 
     for(let d of dirs){
-        let p = pixelMap[pixel.x+d[0]]?.[pixel.y+d[1]];
+        let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
         if(!p) continue;
 
-        // nutrients transfer
-        if(p.element === "fertile_soil" && Math.random() < 0.02){
+        if(p.element === "fertile_soil" && Math.random() < 0.01){
             changePixel(p, "rich_soil");
         }
 
-        if(p.element === "rich_soil" && Math.random() < 0.01){
+        if(p.element === "rich_soil" && Math.random() < 0.005){
             changePixel(p, "super_fertile_soil");
         }
     }
 }
 
-elements.wheat_seed.tick = function(pixel){
-    let below = pixelMap[pixel.x]?.[pixel.y+1];
+// extend wheat_seed safely
+if(elements.wheat_seed && !elements.wheat_seed._v31){
+    const old = elements.wheat_seed.tick;
 
-    if(below){
-        if(["rich_soil","fertile_soil","moist_soil"].includes(below.element)){
-            pixel.growth = (pixel.growth || 0) + 0.02;
-        } else if(below.element === "dry_soil"){
-            pixel.growth = (pixel.growth || 0) + 0.005;
+    elements.wheat_seed.tick = function(pixel){
+
+        if(old) old(pixel);
+
+        pixel.growth = pixel.growth || 0;
+
+        let below = pixelMap?.[pixel.x]?.[pixel.y+1];
+
+        if(below){
+            if(["rich_soil","fertile_soil","moist_soil"].includes(below.element)){
+                pixel.growth += 0.02;
+            } else if(below.element === "dry_soil"){
+                pixel.growth += 0.005;
+            }
         }
-    }
 
-    if(pixel.growth > 1){
-        changePixel(pixel, "plant");
-    }
+        if(pixel.growth > 1){
+            changePixel(pixel, "plant");
+        }
 
-    rootSpread(pixel);
-};
+        rootSpread(pixel);
+    };
+
+    elements.wheat_seed._v31 = true;
+}
+
+});
 
 // =====================================
-// 🧪 NUTRIENT DEPLETION SYSTEM
+// 🧪 NUTRIENT SYSTEM (SAFE EXTEND)
 // =====================================
+
+safe(() => {
 
 function nutrientDrain(pixel){
-    if(pixel.element === "rich_soil"){
-        if(Math.random() < 0.0008){
-            changePixel(pixel, "fertile_soil");
-        }
+
+    if(pixel.element === "rich_soil" && Math.random() < 0.0005){
+        changePixel(pixel, "fertile_soil");
     }
 
-    if(pixel.element === "fertile_soil"){
-        if(Math.random() < 0.0005){
-            changePixel(pixel, "dirt");
-        }
+    if(pixel.element === "fertile_soil" && Math.random() < 0.0003){
+        changePixel(pixel, "dirt");
     }
 }
 
-elements.rich_soil.tick = function(pixel){
-    nutrientDrain(pixel);
+// safe tick extension
+const wrap = (name) => {
+    if(!elements[name] || elements[name]._nutri) return;
+
+    const old = elements[name].tick;
+
+    elements[name].tick = function(pixel){
+        if(old) old(pixel);
+        nutrientDrain(pixel);
+    };
+
+    elements[name]._nutri = true;
 };
 
-elements.fertile_soil.tick = function(pixel){
-    nutrientDrain(pixel);
-};
+wrap("rich_soil");
+wrap("fertile_soil");
+
+});
 
 // =====================================
-// 🌍 SOIL LAYERS SYSTEM
+// 🌍 SOIL LAYERS (NO HEIGHT API FIX)
 // =====================================
+
+safe(() => {
 
 function soilLayers(pixel){
-    if(pixel.y > height*0.75){
+    if(pixel.y > 200){ // SAFE FIX (no height dependency)
+
         if(pixel.element === "dirt" && Math.random() < 0.001){
             changePixel(pixel, "clay_soil_plus");
         }
     }
-
-    if(pixel.y > height*0.85){
-        if(pixel.element === "clay_soil_plus" && Math.random() < 0.002){
-            changePixel(pixel, "rock");
-        }
-    }
 }
 
-// attach to dirt
-elements.dirt.tick = function(pixel){
-    soilLayers(pixel);
-};
+// extend dirt safely
+if(elements.dirt && !elements.dirt._layered){
+    const old = elements.dirt.tick;
+
+    elements.dirt.tick = function(pixel){
+        if(old) old(pixel);
+        soilLayers(pixel);
+    };
+
+    elements.dirt._layered = true;
+}
+
+});
 
 // =====================================
-// ⚗️ pH GROWTH EFFECT SYSTEM
+// ⚗️ pH SYSTEM FIXED
 // =====================================
 
-function phGrowthModifier(pixel){
-    let below = pixelMap[pixel.x]?.[pixel.y+1];
+safe(() => {
+
+function phGrowth(pixel){
+    let below = pixelMap?.[pixel.x]?.[pixel.y+1];
     if(!below) return 1;
 
     switch(below.element){
-        case "acidic_soil": return 0.6;
+        case "acidic_soil": return 0.7;
         case "neutral_soil": return 1;
-        case "alkaline_soil": return 0.8;
-        case "rich_soil": return 1.4;
-        case "super_fertile_soil": return 2;
+        case "alkaline_soil": return 0.9;
+        case "rich_soil": return 1.3;
+        case "super_fertile_soil": return 1.8;
         default: return 1;
     }
 }
 
-// override plant growth boost
-elements.tomato_seed.tick = function(pixel){
-    let below = pixelMap[pixel.x]?.[pixel.y+1];
-    let mult = phGrowthModifier(pixel);
+if(elements.tomato_seed && !elements.tomato_seed._ph){
 
-    if(below){
-        pixel.growth = (pixel.growth || 0) + (0.02 * mult);
-    }
+    const old = elements.tomato_seed.tick;
 
-    if(pixel.growth > 1){
-        changePixel(pixel, "plant");
-    }
-};
+    elements.tomato_seed.tick = function(pixel){
+
+        if(old) old(pixel);
+
+        let below = pixelMap?.[pixel.x]?.[pixel.y+1];
+        let mult = phGrowth(pixel);
+
+        if(below){
+            pixel.growth = (pixel.growth || 0) + (0.02 * mult);
+        }
+
+        if(pixel.growth > 1){
+            changePixel(pixel, "plant");
+        }
+    };
+
+    elements.tomato_seed._ph = true;
+}
+
+});
 
 // =====================================
-// 🪱 ANIMAL / BURROW SYSTEM
+// 🪱 EARTHWORM SAFE EXTENSION
 // =====================================
 
-elements.earthworm = {
-    color:"#c78d7b",
-    behavior:[
-        "XX|M1|XX",
-        "M1|XX|M1",
-        "XX|M1|XX"
-    ],
-    category:"life",
-    density:1050,
-    tick:function(pixel){
+safe(() => {
+
+if(elements.earthworm && !elements.earthworm._v31){
+
+    const old = elements.earthworm.tick;
+
+    elements.earthworm.tick = function(pixel){
+
+        if(old) old(pixel);
+
         let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
 
         for(let d of dirs){
-            let p = pixelMap[pixel.x+d[0]]?.[pixel.y+d[1]];
+            let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
             if(!p) continue;
 
-            if(p.element === "dirt" && Math.random() < 0.01){
+            if(p.element === "dirt" && Math.random() < 0.005){
                 changePixel(p, "fertile_soil");
             }
 
-            if(p.element === "fertile_soil" && Math.random() < 0.02){
+            if(p.element === "fertile_soil" && Math.random() < 0.01){
                 changePixel(p, "rich_soil");
             }
         }
-    }
-};
+    };
+
+    elements.earthworm._v31 = true;
+}
+
+});
 
 // =====================================
-// ⚠️ FERTILIZER OVERUSE DAMAGE
+// ⚠️ FERTILIZER OVERUSE (SAFE)
 // =====================================
 
-function fertilizerOveruse(pixel){
-    let below = pixelMap[pixel.x]?.[pixel.y+1];
+safe(() => {
+
+function fertilizer(pixel){
+    let below = pixelMap?.[pixel.x]?.[pixel.y+1];
     if(!below) return;
 
     if(["fertilizer_n","fertilizer_p","fertilizer_k"].includes(pixel.element)){
-        if(below.element === "super_fertile_soil"){
-            if(Math.random() < 0.002){
-                changePixel(below, "acidic_soil");
-            }
+        if(below.element === "super_fertile_soil" && Math.random() < 0.001){
+            changePixel(below, "acidic_soil");
         }
     }
 }
 
-// hook fertilizer tick safety
-elements.fertilizer_n.tick = fertilizerOveruse;
-elements.fertilizer_p.tick = fertilizerOveruse;
-elements.fertilizer_k.tick = fertilizerOveruse;
+["fertilizer_n","fertilizer_p","fertilizer_k"].forEach(f => {
+    if(elements[f] && !elements[f]._fert){
+        const old = elements[f].tick;
+
+        elements[f].tick = function(pixel){
+            if(old) old(pixel);
+            fertilizer(pixel);
+        };
+
+        elements[f]._fert = true;
+    }
+});
+
+});
 
 // =====================================
-// END v3.1 PACK
+// END FIXED v3.1
 // =====================================
 
-log("Soil Expansion v3.1 loaded!");
+console.log("Soil Expansion v3.1 FIX LOADED");
