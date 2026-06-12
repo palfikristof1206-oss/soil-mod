@@ -1,4 +1,4 @@
-console.log("🔥 V6 ULTIMATE FIXED BOOTING...");
+console.log("🔥 V7 ORDER FIX BOOTING...");
 
 // =============================
 // STATE
@@ -12,7 +12,15 @@ window.ModLoader = {
 
 window.MODS = window.MODS || [];
 
-const STORAGE_KEY = "sandboxels_mods_v4";
+const STORAGE_KEY = "sandboxels_mods_v7";
+
+// =============================
+// ELEMENT SYSTEM INIT
+// =============================
+
+window.elements = window.elements || {};
+window.elements.__registry = window.elements.__registry || {};
+window.elements.__categories = window.elements.__categories || {};
 
 // =============================
 // 💾 SAVE / LOAD
@@ -37,22 +45,18 @@ function loadSavedMods(){
 }
 
 // =============================
-// 🧱 SINGLE TRUE REGISTER SYSTEM
+// 🧱 REGISTER ELEMENT (ONLY SOURCE OF TRUTH)
 // =============================
-
-if(!window.elements) window.elements = {};
-window.elements.__registry = window.elements.__registry || {};
-window.elements.__categories = window.elements.__categories || {};
 
 window.registerElement = function(name, data){
 
-    // CORE STORE
     window.elements[name] = data;
 
-    // REGISTRY MARK
-    window.elements.__registry[name] = true;
+    window.elements.__registry[name] = {
+        ts: Date.now(),
+        category: data.category || "uncategorized"
+    };
 
-    // CATEGORY INDEX
     const cat = data.category || "uncategorized";
 
     if(!window.elements.__categories[cat]){
@@ -63,74 +67,43 @@ window.registerElement = function(name, data){
         window.elements.__categories[cat].push(name);
     }
 
-    // HARD REFRESH (3 STAGE)
-    const refresh = () => {
-        if(window.rebuildPalette) window.rebuildPalette();
-        if(window.updatePalette) window.updatePalette();
-        window.dispatchEvent(new Event("resize"));
-    };
-
-    requestAnimationFrame(refresh);
-    setTimeout(refresh, 10);
-    setTimeout(refresh, 100);
-
     console.log("🧱 REGISTERED:", name, "→", cat);
 };
 
 // =============================
-// 🔁 FORCE SYNC ENGINE (IMPORTANT)
+// 🔥 UI REFRESH (AFTER EXECUTION ONLY)
 // =============================
 
-function forceRegistryCommit(){
-
-    if(!window.elements) return;
-
-    for(const key in window.elements){
-
-        if(key.startsWith("__")) continue;
-
-        if(!window.elements.__registry[key]){
-            window.registerElement(key, window.elements[key]);
-        }
-    }
-
-    if(window.rebuildPalette) window.rebuildPalette();
-    if(window.updatePalette) window.updatePalette();
-
-    console.log("💾 REGISTRY FULL SYNC DONE");
+function refreshUI(){
+    window.rebuildPalette?.();
+    window.updatePalette?.();
+    window.dispatchEvent(new Event("resize"));
 }
 
-setInterval(forceRegistryCommit, 1000);
-
 // =============================
-// 🧠 MOD COMPILER (SIMPLE + SAFE)
+// 🧠 COMPILER (sima mod format → registerElement)
 // =============================
 
 function compileMod(code){
 
-    const lines = code.split("\n");
-    const out = [];
-
-    for(let line of lines){
+    return code.split("\n").map(line => {
 
         line = line.trim();
 
-        if(!line || line.startsWith("//")) continue;
+        if(!line || line.startsWith("//")) return "";
 
         const m = line.match(/^([a-zA-Z0-9_]+)\s*=\s*(\{[\s\S]*\})$/);
 
         if(m){
-            out.push(`registerElement("${m[1]}", ${m[2]});`);
-        } else {
-            out.push(line);
+            return `registerElement("${m[1]}", ${m[2]});`;
         }
-    }
 
-    return out.join("\n");
+        return line;
+    }).join("\n");
 }
 
 // =============================
-// FETCH
+// FETCH (STEP 1)
 // =============================
 
 async function fetchMod(url){
@@ -140,7 +113,7 @@ async function fetchMod(url){
 }
 
 // =============================
-// RUN MOD
+// EXECUTE MOD (STEP 3)
 // =============================
 
 function runMod(code, id){
@@ -148,15 +121,12 @@ function runMod(code, id){
     try {
         const compiled = compileMod(code);
 
-        const fn = new Function(
+        new Function(
             "window",
             "elements",
             "registerElement",
-            "console",
             compiled
-        );
-
-        fn(window, window.elements, window.registerElement, console);
+        )(window, window.elements, window.registerElement);
 
         console.log("✅ LOADED:", id);
         return true;
@@ -169,24 +139,31 @@ function runMod(code, id){
 }
 
 // =============================
-// LOAD MOD
+// LOAD MOD (CORRECT ORDER)
 // =============================
 
 async function loadMod(url){
 
     try {
 
+        // 1. FETCH
         const code = await fetchMod(url);
         const id = url.split("/").pop();
 
+        // 2. EXECUTE (registry happens HERE)
         const ok = runMod(code, id);
 
+        // 3. STORE STATE
         if(ok){
             ModLoader.mods[id] = {url, code};
+
             if(!ModLoader.loaded.includes(id)){
                 ModLoader.loaded.push(id);
             }
         }
+
+        // 4. SYNC AFTER EXECUTION (IMPORTANT)
+        queueMicrotask(refreshUI);
 
         updateUI();
 
@@ -200,10 +177,13 @@ async function loadMod(url){
 // =============================
 
 async function loadAll(){
+
     console.log("🚀 Loading mods...");
+
     for(const url of MODS){
         await loadMod(url);
     }
+
     console.log("✅ DONE");
 }
 
@@ -213,8 +193,25 @@ async function loadAll(){
 
 async function autoReapplyMods(){
     console.log("♻ Reapplying mods...");
+
     for(const url of MODS){
         await loadMod(url);
+    }
+}
+
+// =============================
+// FORCE SYNC (SAFE BACKUP ONLY)
+// =============================
+
+function forceRegistryCommit(){
+
+    for(const key in window.elements){
+
+        if(key.startsWith("__")) continue;
+
+        if(!window.elements.__registry[key]){
+            window.registerElement(key, window.elements[key]);
+        }
     }
 }
 
@@ -222,36 +219,67 @@ async function autoReapplyMods(){
 // UI
 // =============================
 
-const toggleBtn = document.createElement("div");
-toggleBtn.innerHTML = "🔥";
+function createUI(){
 
-toggleBtn.style = `
-position:fixed;
-bottom:15px;
-left:15px;
-width:52px;
-height:52px;
-border-radius:50%;
-background:linear-gradient(45deg,#7b2cff,#00d4ff);
-display:flex;
-align-items:center;
-justify-content:center;
-cursor:pointer;
-z-index:999999;
-box-shadow:0 0 15px rgba(0,200,255,0.8);
-`;
+    if(document.getElementById("modUI")) return;
 
-document.body.appendChild(toggleBtn);
+    const ui = document.createElement("div");
+    ui.id = "modUI";
+
+    ui.style = `
+        position:fixed;
+        inset:0;
+        background:#050816;
+        color:white;
+        font-family:monospace;
+        display:flex;
+        z-index:999999;
+    `;
+
+    ui.innerHTML = `
+        <div style="width:300px;padding:10px;border-right:1px solid #222;">
+            <h2>🔥 MOD LOADER V7 FIXED</h2>
+
+            <input id="url" style="width:100%;padding:6px;" placeholder="mod url">
+
+            <button id="add">ADD</button>
+            <button id="load">LOAD</button>
+
+            <div id="mods"></div>
+        </div>
+
+        <div style="flex:1;padding:10px;">
+            <pre id="console"></pre>
+        </div>
+    `;
+
+    document.body.appendChild(ui);
+
+    document.getElementById("add").onclick = () => {
+        const v = document.getElementById("url").value;
+        if(v){
+            MODS.push(v);
+            saveMods();
+        }
+    };
+
+    document.getElementById("load").onclick = loadAll;
+}
 
 // =============================
-// UI TOGGLE
+// UI UPDATE
 // =============================
 
-toggleBtn.onclick = () => {
-    const ui = document.getElementById("modUI");
-    if(!ui) return;
-    ui.style.display = (ui.style.display === "none") ? "flex" : "none";
-};
+function updateUI(){
+    const box = document.getElementById("mods");
+    if(!box) return;
+
+    box.innerHTML = "";
+
+    for(const id in ModLoader.mods){
+        box.innerHTML += `<div>🟢 ${id}</div>`;
+    }
+}
 
 // =============================
 // INIT
@@ -260,8 +288,6 @@ toggleBtn.onclick = () => {
 loadSavedMods();
 createUI();
 
-setTimeout(() => {
-    autoReapplyMods();
-}, 1200);
+setInterval(forceRegistryCommit, 2000);
 
-console.log("🔥 V6 READY");
+console.log("🔥 V7 ORDER FIX READY");
