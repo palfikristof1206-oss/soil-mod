@@ -1,162 +1,208 @@
 // =====================================
-// Soil Expansion v3.0 - EXPANSION PACK FIXED
+// Soil Expansion v3.0 - EXPANSION PACK (SAFE FIXED)
 // =====================================
 
-console.log("Soil Expansion Expansion Pack loading...");
+console.log("Soil Expansion v3.0 Expansion Pack loading...");
 
-// safety wrappers
-const safe = (fn) => {
-    try { fn(); } catch(e) { console.log("Soil mod error:", e); }
-};
+// =============================
+// SAFE WRAPPER
+// =============================
 
-// =====================================
-// 🌱 PLANT GROWTH SYSTEM (SAFE)
-// =====================================
+function safe(fn){
+    try { fn(); } catch(e){
+        console.log("[Soil Expansion ERROR]", e);
+    }
+}
+
+// =============================
+// SAFE PIXEL GETTER
+// =============================
+
+function getBelow(pixel){
+    try{
+        return pixelMap?.[pixel.x]?.[pixel.y+1];
+    } catch(e){
+        return null;
+    }
+}
+
+function getAbove(pixel){
+    try{
+        return pixelMap?.[pixel.x]?.[pixel.y-1];
+    } catch(e){
+        return null;
+    }
+}
+
+// =============================
+// 🌱 PLANT GROWTH SYSTEM (SAFE ADD-ON)
+// =============================
 
 safe(() => {
-if(elements.wheat_seed && !elements.wheat_seed.tick){
+
+if(elements.wheat_seed){
+
+    const oldTick = elements.wheat_seed.tick;
 
     elements.wheat_seed.tick = function(pixel){
 
-        pixel.yield = pixel.yield || 0;
+        pixel.growth = pixel.growth || 0;
 
-        let below = pixelMap?.[pixel.x]?.[pixel.y+1];
+        let below = getBelow(pixel);
 
         if(below){
-            if(below.element === "moist_soil") pixel.yield += 0.05;
-            if(below.element === "rich_soil") pixel.yield += 0.03;
-            if(below.element === "super_fertile_soil") pixel.yield += 0.08;
-            if(below.element === "eroded_soil") pixel.yield += 0.005;
+            if(below.element === "moist_soil") pixel.growth += 0.05;
+            else if(below.element === "rich_soil") pixel.growth += 0.03;
+            else if(below.element === "super_fertile_soil") pixel.growth += 0.08;
+            else if(below.element === "eroded_soil") pixel.growth += 0.005;
         }
 
-        if(pixel.yield > 1){
-            changePixel(pixel, "plant");
+        if(pixel.growth > 1){
+            if(typeof changePixel === "function"){
+                changePixel(pixel, "plant");
+            }
         }
+
+        if(oldTick) oldTick(pixel);
     };
 }
+
 });
 
-// =====================================
-// 🪨 COMPACTION SYSTEM (SAFE EXTEND)
-// =====================================
+// =============================
+// 🪨 COMPACTION SYSTEM (NON-DESTRUCTIVE)
+// =============================
 
 function checkCompaction(pixel){
 
     const heavy = ["stone","concrete","iron","steel","lead"];
 
-    let above = pixelMap?.[pixel.x]?.[pixel.y-1];
+    let above = getAbove(pixel);
 
     if(above && heavy.includes(above.element)){
         if(Math.random() < 0.001){
-            changePixel(pixel, "compacted_soil");
+            if(typeof changePixel === "function"){
+                changePixel(pixel, "compacted_soil");
+            }
         }
     }
 }
 
-// extend instead of overwrite
+// attach safely (NO overwrite if exists)
 safe(() => {
 
-const oldFertile = elements.fertile_soil.tick;
-elements.fertile_soil.tick = function(pixel){
-    if(oldFertile) oldFertile(pixel);
-    checkCompaction(pixel);
-};
+if(elements.fertile_soil?.tick){
+    const old = elements.fertile_soil.tick;
 
-const oldRich = elements.rich_soil.tick;
-elements.rich_soil.tick = function(pixel){
-    if(oldRich) oldRich(pixel);
-    checkCompaction(pixel);
-};
+    elements.fertile_soil.tick = function(pixel){
+        old(pixel);
+        checkCompaction(pixel);
+    };
+}
+
+if(elements.rich_soil?.tick){
+    const old = elements.rich_soil.tick;
+
+    elements.rich_soil.tick = function(pixel){
+        old(pixel);
+        checkCompaction(pixel);
+    };
+}
 
 });
 
-// =====================================
-// 🌧️ SIMPLE WEATHER SIMULATION
-// =====================================
+// =============================
+// 🌧️ SIMPLE WEATHER (SAFE SIM)
+// =============================
 
-let weather = {
-    rain: 0,
-    dry: 0
-};
+let weather = { rain: 0, dry: 0 };
 
 safe(() => {
+
 setInterval(() => {
 
-    weather.rain += Math.random()*0.02;
-    weather.dry += Math.random()*0.01;
+    weather.rain += Math.random() * 0.02;
+    weather.dry += Math.random() * 0.01;
 
-    // rain effect (safe)
+    // rain spawn (SAFE CHECK)
     if(weather.rain > 1){
         weather.rain = 0;
 
         if(typeof create === "function"){
-            create("water", Math.floor(Math.random()*50), 0);
-        }
-    }
-
-    // drought effect
-    if(weather.dry > 2){
-        weather.dry = 0;
-
-        if(typeof changePixel === "function"){
-            // minimal safe fallback (no changeAll)
+            try{
+                create("water", Math.floor(Math.random()*50), 0);
+            }catch(e){}
         }
     }
 
 }, 1000);
-});
-
-// =====================================
-// 🌧️ EROSION UPGRADE (SAFE MERGE)
-// =====================================
-
-safe(() => {
-
-const oldMoist = elements.moist_soil.tick;
-
-elements.moist_soil.tick = function(pixel){
-
-    if(oldMoist) oldMoist(pixel);
-
-    if(Math.random() < 0.0003){
-        changePixel(pixel, "eroded_soil");
-    }
-};
 
 });
 
-// =====================================
-// 🦠 MICROBIOME SYSTEM (LOCAL ONLY)
-// =====================================
+// =============================
+// 🌧️ EROSION ADD-ON (SAFE EXTEND)
+// =============================
 
 safe(() => {
 
-const oldMyco = elements.mycorrhiza?.tick;
+if(elements.moist_soil?.tick){
 
-if(elements.mycorrhiza){
+    const old = elements.moist_soil.tick;
 
-elements.mycorrhiza.tick = function(pixel){
+    elements.moist_soil.tick = function(pixel){
 
-    if(oldMyco) oldMyco(pixel);
+        old(pixel);
 
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-
-    for(let d of dirs){
-        let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
-        if(!p) continue;
-
-        if(p.element === "rich_soil" && Math.random() < 0.01){
-            changePixel(p, "super_fertile_soil");
+        if(Math.random() < 0.0003){
+            if(typeof changePixel === "function"){
+                changePixel(pixel, "eroded_soil");
+            }
         }
-
-        if(p.element === "compost" && Math.random() < 0.02){
-            changePixel(p, "humus");
-        }
-    }
-};
-
+    };
 }
 
 });
 
-console.log("Soil Expansion v3.0 Expansion Pack LOADED");
+// =============================
+// 🦠 MICROBIOME SPREAD (SAFE LOCAL)
+// =============================
+
+safe(() => {
+
+if(elements.mycorrhiza?.tick){
+
+    const old = elements.mycorrhiza.tick;
+
+    elements.mycorrhiza.tick = function(pixel){
+
+        old(pixel);
+
+        let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+        for(let d of dirs){
+
+            let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
+            if(!p) continue;
+
+            if(p.element === "rich_soil" && Math.random() < 0.01){
+                if(typeof changePixel === "function"){
+                    changePixel(p, "super_fertile_soil");
+                }
+            }
+
+            if(p.element === "compost" && Math.random() < 0.02){
+                if(typeof changePixel === "function"){
+                    changePixel(p, "humus");
+                }
+            }
+        }
+    };
+}
+
+});
+
+// =============================
+// END PACK
+// =============================
+
+console.log("Soil Expansion v3.0 Expansion Pack LOADED (SAFE)");
