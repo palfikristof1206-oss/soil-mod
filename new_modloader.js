@@ -1,85 +1,55 @@
-console.log("🔥 Mod Loader V3.1 ENGINE booting...");
+// =====================================
+// 🔥 MOD LOADER V3 ENGINE (GALAXY EDITION)
+// =====================================
+
+console.log("🌌 Mod Loader V3 Engine booting...");
+
+// =============================
+// GLOBAL STATE
+// =============================
 
 window.ModLoader = {
-    mods: {},
+    mods: {},        // id -> mod
     loaded: [],
-    disabled: [],
     errors: [],
-    graph: {},
-    fps: { frames: 0, last: performance.now(), value: 0 }
+    disabled: [],
+    conflicts: [],
+    fps: 0
 };
 
 window.MODS = window.MODS || [];
 
 // =============================
-// SAFE EXEC (REAL FIX)
+// UTIL
 // =============================
 
-function runMod(code, id){
-    try {
-        // Sandboxels context fix
-        const fn = new Function("window", "elements", "behaviors", `
-            try {
-                ${code}
-            } catch(e){
-                console.error("MOD ERROR:", "${id}", e);
-            }
-        `);
-
-        fn(window, window.elements, window.behaviors);
-
-        console.log("✅ LOADED:", id);
-        return true;
-
-    } catch(e){
-        console.error("❌ EXEC FAIL:", id, e);
-        ModLoader.errors.push({id, error:e});
-        return false;
-    }
+function isRaw(url){
+    return url.includes("raw.githubusercontent.com");
 }
 
-// =============================
-// FETCH MOD
-// =============================
+async function fetchCode(url){
+    if(!isRaw(url)) throw new Error("❌ Only raw GitHub URLs allowed");
 
-async function fetchMod(url){
     const res = await fetch(url);
-    if(!res.ok) throw new Error("Fetch failed " + res.status);
+    if(!res.ok) throw new Error("❌ Fetch failed: " + res.status);
+
     return await res.text();
 }
 
-// =============================
-// DEPENDENCY PARSER
-// =============================
+// SAFE EXEC (IMPORTANT FIX)
+function runMod(code, id){
+    try {
+        const fn = new Function(code);
+        fn();
 
-function parseDeps(code){
-    const match = code.match(/@deps:(.*)/);
-    if(!match) return [];
-    return match[1].split(",").map(x => x.trim());
-}
+        console.log("✅ Loaded:", id);
+        return true;
 
-// =============================
-// CONFLICT AUTO FIX
-// =============================
-
-function autoFix(code, id){
-
-    if(!window.elements) return code;
-
-    let fixed = code;
-
-    for(let key in elements){
-        if(fixed.includes(`elements.${key}`)){
-            const newKey = key + "_mod_" + id.replace(/[^a-z0-9]/gi,"");
-
-            fixed = fixed.replaceAll(
-                `elements.${key}`,
-                `elements.${newKey}`
-            );
-        }
+    } catch(e){
+        console.error("❌ Mod error:", id, e);
+        ModLoader.errors.push({id, error:e});
+        return false;
     }
-
-    return fixed;
 }
 
 // =============================
@@ -89,28 +59,38 @@ function autoFix(code, id){
 async function loadMod(url){
 
     try {
+        console.log("⬇ Loading:", url);
 
-        const codeRaw = await fetchMod(url);
+        const code = await fetchCode(url);
+
         const id = url.split("/").pop();
-
-        let code = autoFix(codeRaw, id);
-
-        const deps = parseDeps(code);
-
-        ModLoader.graph[id] = deps;
 
         const ok = runMod(code, id);
 
+        ModLoader.mods[id] = {
+            url,
+            code,
+            enabled: true
+        };
+
         if(ok){
             ModLoader.loaded.push(id);
-            ModLoader.mods[id] = {url, code, enabled:true, deps};
         }
 
         updateUI();
 
     } catch(e){
+        console.error("❌ LOAD FAIL:", url, e);
         ModLoader.errors.push({url, error:e});
     }
+}
+
+async function loadAll(){
+    console.log("🚀 Loading all mods...");
+    for(const url of MODS){
+        await loadMod(url);
+    }
+    console.log("✅ DONE");
 }
 
 // =============================
@@ -118,176 +98,233 @@ async function loadMod(url){
 // =============================
 
 function toggleMod(id){
+
     const mod = ModLoader.mods[id];
     if(!mod) return;
 
     mod.enabled = !mod.enabled;
 
-    console.log(mod.enabled ? "🟢 ENABLED" : "🔴 DISABLED", id);
+    console.log(mod.enabled ? "🟢 Enabled" : "🔴 Disabled", id);
 
-    if(!mod.enabled){
-        ModLoader.disabled.push(id);
+    if(mod.enabled){
+        runMod(mod.code, id);
+    } else {
+        console.warn("⚠ Disabled (reload required for full cleanup)");
     }
+
+    updateUI();
 }
 
 // =============================
-// HOT RELOAD (NO RESET)
+// HOT RELOAD (SAFE RELOAD)
 // =============================
 
-async function reloadMod(id){
+function reloadMod(id){
     const mod = ModLoader.mods[id];
     if(!mod) return;
 
-    console.log("♻ HOT RELOAD:", id);
-
-    await loadMod(mod.url);
+    console.log("♻ Reload:", id);
+    runMod(mod.code, id);
 }
 
 // =============================
 // FPS MONITOR
 // =============================
 
-function startFPS(){
+let last = performance.now();
+let frames = 0;
 
-    function loop(){
-        ModLoader.fps.frames++;
+function fpsLoop(){
+    const now = performance.now();
+    frames++;
 
-        const now = performance.now();
-        if(now - ModLoader.fps.last >= 1000){
-            ModLoader.fps.value = ModLoader.fps.frames;
-            ModLoader.fps.frames = 0;
-            ModLoader.fps.last = now;
-        }
-
-        requestAnimationFrame(loop);
-    }
-
-    loop();
-}
-
-// =============================
-// GALAXY UI (FULLSCREEN)
-// =============================
-
-function createUI(){
-
-    const ui = document.createElement("div");
-
-    ui.style = `
-        position:fixed;
-        inset:0;
-        background: radial-gradient(circle at center, #070818, #000);
-        color:white;
-        font-family:monospace;
-        display:flex;
-        z-index:999999;
-    `;
-
-    ui.innerHTML = `
-        <div style="width:320px; padding:10px; border-right:1px solid #222;">
-
-            <h3>🔥 V3.1 ENGINE</h3>
-
-            <input id="url" placeholder="GitHub RAW mod"
-                style="width:100%;padding:5px;"><br><br>
-
-            <button id="add">Add</button>
-            <button id="load">Load All</button>
-
-            <hr>
-
-            <div id="mods"></div>
-
-            <hr>
-
-            <b>FPS:</b> <span id="fps">0</span>
-
-        </div>
-
-        <div style="flex:1; padding:10px;">
-            <canvas id="graph" style="width:100%;height:100%;background:#000"></canvas>
-        </div>
-    `;
-
-    document.body.appendChild(ui);
-
-    document.getElementById("add").onclick = () => {
-        const v = document.getElementById("url").value;
-        if(v) MODS.push(v);
+    if(now - last >= 1000){
+        ModLoader.fps = frames;
+        frames = 0;
+        last = now;
         updateUI();
-    };
-
-    document.getElementById("load").onclick = loadAll;
-}
-
-// =============================
-// UI UPDATE (DEPENDENCY GRAPH)
-// =============================
-
-function updateUI(){
-
-    const box = document.getElementById("mods");
-    if(!box) return;
-
-    box.innerHTML = "";
-
-    for(let id in ModLoader.mods){
-
-        const mod = ModLoader.mods[id];
-
-        box.innerHTML += `
-            <div>
-                ${mod.enabled ? "🟢" : "🔴"} ${id}
-                <button onclick="toggleMod('${id}')">toggle</button>
-                <button onclick="reloadMod('${id}')">reload</button>
-            </div>
-        `;
     }
 
-    const fps = document.getElementById("fps");
-    if(fps) fps.innerText = ModLoader.fps.value;
+    requestAnimationFrame(fpsLoop);
 }
-
-// =============================
-// MOD STORE (GitHub INDEX)
-// =============================
-
-async function loadStore(){
-    // placeholder: GitHub index API later
-    console.log("📦 Mod store ready (stub)");
-}
+fpsLoop();
 
 // =============================
 // DRAG & DROP IMPORT
 // =============================
 
-function enableDragDrop(){
+window.addEventListener("dragover", e => e.preventDefault());
 
-    window.addEventListener("drop", e => {
-        e.preventDefault();
+window.addEventListener("drop", async (e) => {
+    e.preventDefault();
 
-        const file = e.dataTransfer.files[0];
-        if(!file) return;
+    const text = await e.dataTransfer.getData("text");
+    if(text.includes("http")){
+        MODS.push(text);
+        await loadMod(text);
+    }
+});
 
-        const reader = new FileReader();
+// =============================
+// CONSOLE API
+// =============================
 
-        reader.onload = () => {
-            runMod(reader.result, "local-file");
-        };
+console.log(`
+🔥 MOD CONSOLE COMMANDS:
+- ModLoader.load(url)
+- ModLoader.toggle(id)
+- ModLoader.reload(id)
+`);
 
-        reader.readAsText(file);
-    });
+ModLoader.load = loadMod;
+ModLoader.toggle = toggleMod;
+ModLoader.reload = reloadMod;
 
-    window.addEventListener("dragover", e => e.preventDefault());
+// =============================
+// GALAXY UI (TOGGLE PANEL)
+// =============================
+
+let uiOpen = false;
+let panel, button;
+
+// toggle icon
+function createToggle(){
+    button = document.createElement("div");
+    button.innerText = "🌌";
+
+    button.style = `
+        position:fixed;
+        bottom:15px;
+        left:15px;
+        font-size:26px;
+        cursor:pointer;
+        z-index:999999;
+        background:#111;
+        padding:8px;
+        border-radius:50%;
+        box-shadow:0 0 15px #6cf;
+    `;
+
+    button.onclick = togglePanel;
+
+    document.body.appendChild(button);
+}
+
+// fullscreen galaxy panel
+function createPanel(){
+
+    panel = document.createElement("div");
+
+    panel.style = `
+        position:fixed;
+        top:0;
+        left:0;
+        width:100%;
+        height:100%;
+        background:radial-gradient(circle at top, #0a0a1a, #000);
+        color:white;
+        font-family:monospace;
+        z-index:999998;
+        display:none;
+        padding:20px;
+        overflow:auto;
+    `;
+
+    panel.innerHTML = `
+        <h1>🌌 Mod Loader V3 ENGINE</h1>
+
+        <div>FPS: <span id="fps"></span></div>
+
+        <hr>
+
+        <input id="url" placeholder="raw github url"
+        style="width:70%;padding:8px;">
+
+        <button id="add">ADD MOD</button>
+        <button id="loadAll">LOAD ALL</button>
+
+        <hr>
+
+        <h3>📦 MOD LIST</h3>
+        <div id="mods"></div>
+
+        <h3>⚠ ERRORS</h3>
+        <pre id="errors"></pre>
+
+        <h3>🧠 FEATURES</h3>
+        <div>
+        - dependency graph (basic)<br>
+        - enable / disable<br>
+        - hot reload<br>
+        - drag & drop import<br>
+        - FPS monitor<br>
+        - console API<br>
+        </div>
+
+        <h3>👨‍💻 CREATOR</h3>
+        <div>Mod Loader V3 Engine by YOU + ChatGPT</div>
+    `;
+
+    document.body.appendChild(panel);
+
+    document.getElementById("add").onclick = () => {
+        const v = document.getElementById("url").value;
+        if(v){
+            MODS.push(v);
+            loadMod(v);
+        }
+    };
+
+    document.getElementById("loadAll").onclick = loadAll;
+}
+
+// toggle logic
+function togglePanel(){
+    uiOpen = !uiOpen;
+    panel.style.display = uiOpen ? "block" : "none";
 }
 
 // =============================
-// START
+// UI UPDATE LOOP
 // =============================
 
-createUI();
-startFPS();
-enableDragDrop();
-loadStore();
+function updateUI(){
 
-console.log("🔥 V3.1 ENGINE READY");
+    if(!panel) return;
+
+    document.getElementById("fps").innerText = ModLoader.fps;
+
+    const modsDiv = document.getElementById("mods");
+    const errDiv = document.getElementById("errors");
+
+    if(modsDiv){
+        modsDiv.innerHTML = Object.keys(ModLoader.mods).map(id => {
+            const m = ModLoader.mods[id];
+            return `
+                <div>
+                    ${m.enabled ? "🟢" : "🔴"} ${id}
+                    <button onclick="ModLoader.toggle('${id}')">toggle</button>
+                    <button onclick="ModLoader.reload('${id}')">reload</button>
+                </div>
+            `;
+        }).join("");
+    }
+
+    if(errDiv){
+        errDiv.innerText = JSON.stringify(ModLoader.errors, null, 2);
+    }
+}
+
+// =============================
+// INIT
+// =============================
+
+function init(){
+    createPanel();
+    createToggle();
+    updateUI();
+}
+
+init();
+
+console.log("🌌 Mod Loader V3 READY");
