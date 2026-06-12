@@ -213,3 +213,48 @@ function updateUI(){
 // =============================
 createUI();
 console.log("🔥 V4 ENGINE READY");
+// =============================
+// 🌌 UI TOGGLE BUTTON (FIX)
+// =============================
+
+const toggleBtn = document.createElement("div");
+
+toggleBtn.innerHTML = "🔥";
+toggleBtn.style = `
+    position:fixed;
+    bottom:15px;
+    left:15px;
+    width:52px;
+    height:52px;
+    border-radius:50%;
+    background:linear-gradient(45deg,#7b2cff,#00d4ff);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    cursor:pointer;
+    z-index:1000000;
+    box-shadow:0 0 15px rgba(0,200,255,0.8);
+    user-select:none;
+`;
+
+document.body.appendChild(toggleBtn);
+
+// =============================
+// STATE SAFE TOGGLE
+// =============================
+
+window.__modUIOpen = false;
+
+function toggleUI(){
+
+    const ui = document.querySelector("div[style*='radial-gradient']");
+    if(!ui) return;
+
+    window.__modUIOpen = !window.__modUIOpen;
+
+    ui.style.display = window.__modUIOpen ? "flex" : "none";
+}
+
+// click event
+toggleBtn.onclick = toggleUI;
