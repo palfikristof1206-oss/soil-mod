@@ -1,5 +1,5 @@
 // =====================================
-// 🔥 Sandboxels Mod Loader V4 ENGINE
+// 🔥 Sandboxels Mod Loader V4 ENGINE (FIXED)
 // =====================================
 
 console.log("🔥 V4 ENGINE BOOTING...");
@@ -13,13 +13,26 @@ window.ModLoader = {
     graph: {},
 };
 
-// =============================
-// GLOBAL MOD LIST
-// =============================
 window.MODS = window.MODS || [];
 
 // =============================
-// FETCH
+// 🌌 ELEMENT REGISTRY FIX (KEY PART)
+// =============================
+
+window.registerElement = function(name, data){
+    if(!window.elements) window.elements = {};
+
+    elements[name] = data;
+
+    // force UI refresh (Sandboxels hack)
+    if(window.updatePalette) window.updatePalette();
+    if(window.rebuildPalette) window.rebuildPalette();
+
+    console.log("🧱 Registered element:", name);
+};
+
+// =============================
+// FETCH MOD
 // =============================
 async function fetchMod(url){
     const res = await fetch(url);
@@ -28,12 +41,20 @@ async function fetchMod(url){
 }
 
 // =============================
-// RUN MOD (SAFE SANDBOXELS CONTEXT)
+// SAFE RUN
 // =============================
 function runMod(code, id){
     try {
-        const fn = new Function("elements","behaviors","console", code);
-        fn(window.elements, window.behaviors, console);
+        const fn = new Function(
+            "window",
+            "elements",
+            "behaviors",
+            "registerElement",
+            "console",
+            code
+        );
+
+        fn(window, window.elements, window.behaviors, window.registerElement, console);
 
         console.log("✅ MOD LOADED:", id);
         return true;
@@ -56,17 +77,10 @@ async function loadMod(url){
         const code = await fetchMod(url);
         const id = url.split("/").pop();
 
-        ModLoader.graph[id] = [];
-
         const ok = runMod(code, id);
 
         if(ok){
-            ModLoader.mods[id] = {
-                url,
-                code,
-                enabled: true
-            };
-
+            ModLoader.mods[id] = {url, code, enabled:true};
             ModLoader.loaded.push(id);
         }
 
@@ -95,12 +109,11 @@ function toggleMod(id){
     if(!mod) return;
 
     mod.enabled = !mod.enabled;
-
     console.log(mod.enabled ? "🟢 ENABLED" : "🔴 DISABLED", id);
 }
 
 // =============================
-// HOT RELOAD (REAL)
+// HOT RELOAD
 // =============================
 async function reloadMod(id){
     const mod = ModLoader.mods[id];
@@ -111,11 +124,45 @@ async function reloadMod(id){
 }
 
 // =============================
-// UI (GALAXY STYLE)
+// 🌌 UI TOGGLE BUTTON (FIXED)
+// =============================
+
+const toggleBtn = document.createElement("div");
+
+toggleBtn.innerHTML = "🔥";
+toggleBtn.style = `
+    position:fixed;
+    bottom:15px;
+    left:15px;
+    width:52px;
+    height:52px;
+    border-radius:50%;
+    background:linear-gradient(45deg,#7b2cff,#00d4ff);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    cursor:pointer;
+    z-index:1000000;
+    box-shadow:0 0 15px rgba(0,200,255,0.8);
+    user-select:none;
+`;
+
+document.body.appendChild(toggleBtn);
+
+// =============================
+// UI STATE
+// =============================
+window.__modUIOpen = true;
+
+// =============================
+// FULLSCREEN UI
 // =============================
 function createUI(){
 
     const ui = document.createElement("div");
+
+    ui.id = "modUI";
 
     ui.style = `
         position:fixed;
@@ -128,7 +175,7 @@ function createUI(){
     `;
 
     ui.innerHTML = `
-        <div style="width:300px;padding:10px;border-right:1px solid #222;">
+        <div style="width:320px;padding:10px;border-right:1px solid #222;">
 
             <h2>🔥 MOD LOADER V4</h2>
 
@@ -137,6 +184,7 @@ function createUI(){
 
             <button id="add">ADD</button>
             <button id="load">LOAD ALL</button>
+            <button id="clear">CLEAR LOG</button>
 
             <hr>
 
@@ -164,6 +212,10 @@ function createUI(){
     };
 
     document.getElementById("load").onclick = loadAll;
+
+    document.getElementById("clear").onclick = () => {
+        document.getElementById("console").innerText = "";
+    };
 }
 
 // =============================
@@ -209,52 +261,21 @@ function updateUI(){
 })();
 
 // =============================
-// START
+// TOGGLE UI
 // =============================
-createUI();
-console.log("🔥 V4 ENGINE READY");
-// =============================
-// 🌌 UI TOGGLE BUTTON (FIX)
-// =============================
+toggleBtn.onclick = () => {
 
-const toggleBtn = document.createElement("div");
+    const ui = document.getElementById("modUI");
 
-toggleBtn.innerHTML = "🔥";
-toggleBtn.style = `
-    position:fixed;
-    bottom:15px;
-    left:15px;
-    width:52px;
-    height:52px;
-    border-radius:50%;
-    background:linear-gradient(45deg,#7b2cff,#00d4ff);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:20px;
-    cursor:pointer;
-    z-index:1000000;
-    box-shadow:0 0 15px rgba(0,200,255,0.8);
-    user-select:none;
-`;
-
-document.body.appendChild(toggleBtn);
-
-// =============================
-// STATE SAFE TOGGLE
-// =============================
-
-window.__modUIOpen = false;
-
-function toggleUI(){
-
-    const ui = document.querySelector("div[style*='radial-gradient']");
     if(!ui) return;
 
     window.__modUIOpen = !window.__modUIOpen;
 
     ui.style.display = window.__modUIOpen ? "flex" : "none";
-}
+};
 
-// click event
-toggleBtn.onclick = toggleUI;
+// =============================
+// START
+// =============================
+createUI();
+console.log("🔥 V4 ENGINE READY");
