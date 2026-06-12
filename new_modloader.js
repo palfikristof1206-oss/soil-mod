@@ -1,63 +1,153 @@
 // =====================================
-// Sandboxels Mod Loader v1
+// Sandboxels Mod Loader V2 (FULL)
 // =====================================
 
-console.log("Mod Loader v1 initializing...");
+console.log("Mod Loader V2 initializing...");
+
+// =============================
+// GLOBAL STATE
+// =============================
+
+window.ModLoader = {
+    mods: {},        // {id: modData}
+    order: [],       // load order
+    loaded: [],
+    disabled: [],
+    errors: [],
+    conflicts: [],
+};
 
 // =============================
 // CONFIG
 // =============================
 
 const MODS = [
-    // ide jönnek a GitHub RAW linkek
-    // példa:
-    // "https://raw.githubusercontent.com/USER/REPO/main/Soil-mod.js"
+    // raw github js links
+    // "https://raw.githubusercontent.com/user/repo/main/mod.js"
 ];
 
 // =============================
-// STATE
+// UTIL: SAFE FETCH
 // =============================
 
-window.ModLoader = {
-    loaded: [],
-    errors: []
-};
+async function fetchText(url){
+    const res = await fetch(url);
+    return await res.text();
+}
 
 // =============================
-// LOAD SCRIPT FROM URL
+// VERSION DETECTOR
 // =============================
 
-function loadMod(url){
+function detectVersion(code){
+    if(code.includes("v3.1")) return "v3.1";
+    if(code.includes("v3.0")) return "v3.0";
+    if(code.includes("Expansion Pack")) return "pack";
+    return "unknown";
+}
 
-    return new Promise((resolve, reject) => {
+// =============================
+// MANIFEST PARSER (JSON SUPPORT)
+// =============================
 
-        try {
+function parseManifest(code){
+    try {
+        const match = code.match(/\/\*\s*MOD_MANIFEST\s*([\s\S]*?)\*\//);
+        if(match){
+            return JSON.parse(match[1]);
+        }
+    } catch(e){}
+    return null;
+}
 
-            fetch(url)
-            .then(r => r.text())
-            .then(code => {
+// =============================
+// CONFLICT DETECTOR
+// =============================
 
-                try {
-                    eval(code);
+function detectConflicts(code, id){
 
-                    console.log("Loaded mod:", url);
-                    ModLoader.loaded.push(url);
+    const conflicts = [];
 
-                    resolve(url);
+    if(!window.elements) return conflicts;
 
-                } catch(e){
-                    console.log("Mod error:", url, e);
-                    ModLoader.errors.push({url, error:e});
-                    reject(e);
-                }
+    for(let key in elements){
+        if(code.includes(`"${key}"`) && ModLoader.mods[id]?.elements?.includes(key)){
+            conflicts.push(key);
+        }
+    }
 
-            });
+    return conflicts;
+}
 
-        } catch(e){
-            reject(e);
+// =============================
+// SAFE EVAL WRAPPER
+// =============================
+
+function runCode(code, id){
+    try {
+        eval(code);
+        return true;
+    } catch(e){
+        ModLoader.errors.push({id, error:e});
+        console.log("Mod error:", id, e);
+        return false;
+    }
+}
+
+// =============================
+// LOAD SINGLE MOD
+// =============================
+
+async function loadMod(url, id = null){
+
+    try {
+
+        const code = await fetchText(url);
+
+        const manifest = parseManifest(code);
+        const version = detectVersion(code);
+
+        id = id || url;
+
+        const mod = {
+            id,
+            url,
+            code,
+            manifest,
+            version,
+            enabled: true,
+            dependencies: manifest?.dependencies || []
+        };
+
+        // store
+        ModLoader.mods[id] = mod;
+
+        // dependency check (basic)
+        for(let dep of mod.dependencies){
+            if(!ModLoader.mods[dep]){
+                console.warn("Missing dependency:", dep);
+            }
         }
 
-    });
+        // conflict detection
+        const conflicts = detectConflicts(code, id);
+        if(conflicts.length){
+            ModLoader.conflicts.push({id, conflicts});
+            console.warn("Conflicts:", id, conflicts);
+        }
+
+        // execute
+        const ok = runCode(code, id);
+
+        if(ok){
+            ModLoader.loaded.push(id);
+            console.log("Loaded mod:", id, "version:", version);
+        }
+
+    } catch(e){
+        ModLoader.errors.push({url, error:e});
+        console.log("Load fail:", url, e);
+    }
 }
 
 // =============================
@@ -76,39 +166,77 @@ async function loadAllMods(){
 }
 
 // =============================
-// MOBILE UI (NO F12 NEEDED)
+// ENABLE / DISABLE MOD
 // =============================
 
-function createLoaderUI(){
+function toggleMod(id){
 
-    let ui = document.createElement("div");
+    const mod = ModLoader.mods[id];
+    if(!mod) return;
 
-    ui.style.position = "fixed";
-    ui.style.bottom = "10px";
-    ui.style.right = "10px";
-    ui.style.zIndex = 99999;
-    ui.style.background = "rgba(0,0,0,0.7)";
-    ui.style.color = "white";
-    ui.style.padding = "10px";
-    ui.style.fontFamily = "monospace";
-    ui.style.borderRadius = "8px";
+    mod.enabled = !mod.enabled;
+
+    console.log((mod.enabled ? "Enabled" : "Disabled"), id);
+
+    if(mod.enabled){
+        runCode(mod.code, id);
+    } else {
+        location.reload(); // safe fallback (sandbox limitation)
+    }
+}
+
+// =============================
+// HOT RELOAD (SAFE)
+// =============================
+
+async function reloadMod(id){
+
+    const mod = ModLoader.mods[id];
+    if(!mod) return;
+
+    console.log("Reloading:", id);
+
+    await loadMod(mod.url, id);
+}
+
+// =============================
+// MOBILE UI PANEL
+// =============================
+
+function createUI(){
+
+    const ui = document.createElement("div");
+
+    ui.style = `
+        position:fixed;
+        bottom:10px;
+        right:10px;
+        background:rgba(0,0,0,0.85);
+        color:white;
+        padding:10px;
+        z-index:99999;
+        font-family:monospace;
+        border-radius:8px;
+        width:220px;
+    `;
 
     ui.innerHTML = `
-        <div>🧩 Mod Loader v1</div>
-        <button id="reloadMods">Reload Mods</button>
-        <button id="showLogs">Logs</button>
+        <div>🔥 Mod Loader V2</div>
+        <button id="loadMods">Load</button>
+        <button id="reloadAll">Reload</button>
+        <button id="showMods">Mods</button>
     `;
 
     document.body.appendChild(ui);
 
-    document.getElementById("reloadMods").onclick = () => {
-        loadAllMods();
-    };
+    document.getElementById("loadMods").onclick = loadAllMods;
+    document.getElementById("reloadAll").onclick = () => location.reload();
 
-    document.getElementById("showLogs").onclick = () => {
+    document.getElementById("showMods").onclick = () => {
         alert(
-            "Loaded mods:\n" + ModLoader.loaded.join("\n") +
-            "\n\nErrors:\n" + JSON.stringify(ModLoader.errors, null, 2)
+            "Loaded:\n" + ModLoader.loaded.join("\n") +
+            "\n\nErrors:\n" + JSON.stringify(ModLoader.errors, null, 2) +
+            "\n\nConflicts:\n" + JSON.stringify(ModLoader.conflicts, null, 2)
         );
     };
 }
@@ -118,17 +246,11 @@ function createLoaderUI(){
 // =============================
 
 function initModLoader(){
-
-    console.log("Initializing UI + loader...");
-
-    createLoaderUI();
-
-    setTimeout(() => {
-        loadAllMods();
-    }, 1000);
+    console.log("Mod Loader V2 booting...");
+    createUI();
+    setTimeout(loadAllMods, 1000);
 }
 
-// auto start
 initModLoader();
 
-console.log("Mod Loader v1 ready");
+console.log("Mod Loader V2 ready");
