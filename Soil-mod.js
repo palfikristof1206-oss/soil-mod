@@ -1,19 +1,52 @@
 // =============================
-// Soil Expansion v3.0 FIXED
+// Soil Expansion v3.0 - FINAL SAFE BUILD
 // =============================
 
 console.log("Soil Expansion v3.0 loading...");
 
 // =============================
-// SAFE REGISTER HELPER
+// SAFE HELPERS
 // =============================
 
 function safeElement(name, data){
+
     if(!elements[name]){
+
+        // ensure reactions exists safely
+        if(data.reactions && typeof data.reactions !== "object"){
+            data.reactions = {};
+        }
+
         elements[name] = data;
+
     } else {
-        console.warn("Element exists:", name);
+        console.warn("[SoilMod] Exists:", name);
     }
+}
+
+// safe tick extender (NEVER overwrite core)
+function addTick(name, fn){
+
+    if(!elements[name]) return;
+    if(elements[name]._soil_v3) return;
+
+    const old = elements[name].tick;
+
+    elements[name].tick = function(pixel){
+        if(old) old(pixel);
+        fn(pixel);
+    };
+
+    elements[name]._soil_v3 = true;
+}
+
+// safe reaction merge
+function addReaction(name, from, result){
+
+    if(!elements[name]) return;
+    if(!elements[name].reactions) elements[name].reactions = {};
+
+    elements[name].reactions[from] = result;
 }
 
 // =============================
@@ -95,12 +128,7 @@ safeElement("moist_soil", {
     color:"#4f3727",
     behavior:behaviors.POWDER,
     category:"soil_expansion",
-    density:1200,
-    tick:function(pixel){
-        if(Math.random() < 0.0005){
-            changePixel(pixel,"eroded_soil");
-        }
-    }
+    density:1200
 });
 
 safeElement("sandy_soil", {
@@ -141,27 +169,20 @@ safeElement("super_fertile_soil", {
     density:1200
 });
 
+// erosion (SAFE tick add)
+addTick("moist_soil", function(pixel){
+    if(Math.random() < 0.0005){
+        changePixel(pixel,"eroded_soil");
+    }
+});
+
 // =============================
 // NPK
 // =============================
 
-safeElement("fertilizer_n", {
-    color:"#66cc66",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
-
-safeElement("fertilizer_p", {
-    color:"#6699ff",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
-
-safeElement("fertilizer_k", {
-    color:"#ffcc66",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
+safeElement("fertilizer_n", { color:"#66cc66", behavior:behaviors.POWDER, category:"soil_expansion" });
+safeElement("fertilizer_p", { color:"#6699ff", behavior:behaviors.POWDER, category:"soil_expansion" });
+safeElement("fertilizer_k", { color:"#ffcc66", behavior:behaviors.POWDER, category:"soil_expansion" });
 
 // =============================
 // pH
@@ -176,23 +197,9 @@ safeElement("lime", {
     }
 });
 
-safeElement("acidic_soil", {
-    color:"#5a3420",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
-
-safeElement("neutral_soil", {
-    color:"#4a2c1b",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
-
-safeElement("alkaline_soil", {
-    color:"#8a6b4a",
-    behavior:behaviors.POWDER,
-    category:"soil_expansion"
-});
+safeElement("acidic_soil", { color:"#5a3420", behavior:behaviors.POWDER, category:"soil_expansion" });
+safeElement("neutral_soil", { color:"#4a2c1b", behavior:behaviors.POWDER, category:"soil_expansion" });
+safeElement("alkaline_soil", { color:"#8a6b4a", behavior:behaviors.POWDER, category:"soil_expansion" });
 
 // =============================
 // BIOLOGY
@@ -247,13 +254,15 @@ safeElement("tomato_seed", { color:"#c04040", behavior:behaviors.POWDER, categor
 safeElement("potato_seed", { color:"#9b6b43", behavior:behaviors.POWDER, category:"life" });
 
 // =============================
-// INTEGRATION
+// SAFE GLOBAL INTEGRATION
 // =============================
 
-if(!elements.dirt.reactions) elements.dirt.reactions = {};
+if(elements.dirt){
+    if(!elements.dirt.reactions) elements.dirt.reactions = {};
 
-elements.dirt.reactions.sand = {
-    elem2:"sandy_soil"
-};
+    addReaction("dirt","sand",{
+        elem2:"sandy_soil"
+    });
+}
 
-console.log("Soil Expansion v3.0 FIXED loaded!");
+console.log("Soil Expansion v3.0 FIXED SAFE BUILD loaded!");
