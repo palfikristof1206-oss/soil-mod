@@ -7,9 +7,7 @@ console.log("🔥 MODLOADER V8 BOOTING...");
 window.ModLoader = {
     name: "Sandboxels Mod Loader",
     version: "V8",
-    authors: [
-        "Sussy baka"
-    ],
+    authors: ["Sussy baka"],
     features: [
         "Author List",
         "Feature List",
@@ -28,7 +26,6 @@ window.ModLoader = {
 };
 
 window.MODS = window.MODS || [];
-
 const STORAGE_KEY = "sandboxels_mods_v8";
 
 // =============================
@@ -40,55 +37,24 @@ window.elements.__registry = window.elements.__registry || {};
 window.elements.__categories = window.elements.__categories || {};
 
 // =============================
-// SAVE
+// SAVE / LOAD
 // =============================
 
 function saveMods() {
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(MODS)
-    );
-
-    console.log(
-        "💾 Saved",
-        MODS.length,
-        "mods"
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MODS));
+    console.log("💾 Saved", MODS.length, "mods");
 }
 
-// =============================
-// LOAD SAVED
-// =============================
-
 function loadSavedMods() {
-
     try {
-
-        const data = JSON.parse(
-            localStorage.getItem(
-                STORAGE_KEY
-            )
-        );
-
-        if(Array.isArray(data)) {
-
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (Array.isArray(data)) {
             MODS.length = 0;
-
             MODS.push(...data);
-
-            console.log(
-                "📦 Restored",
-                data.length,
-                "mods"
-            );
+            console.log("📦 Restored", data.length, "mods");
         }
-
-    } catch(err){
-
-        console.error(
-            "Load failed",
-            err
-        );
+    } catch (err) {
+        console.error("Load failed", err);
     }
 }
 
@@ -96,193 +62,96 @@ function loadSavedMods() {
 // REGISTER ELEMENT
 // =============================
 
-window.registerElement = function(
-    name,
-    data
-){
-
-    if(!name) return;
-    if(!data) return;
+window.registerElement = function (name, data) {
+    if (!name || !data) return;
 
     window.elements[name] = data;
 
-    const category =
-        data.category ||
-        "uncategorized";
+    const category = data.category || "uncategorized";
 
-    window.elements.__registry[
-        name
-    ] = {
+    window.elements.__registry[name] = {
         registered: true,
         timestamp: Date.now(),
-        category: category
+        category
     };
 
-    if(
-        !window.elements.__categories[
-            category
-        ]
-    ){
-        window.elements.__categories[
-            category
-        ] = [];
+    if (!window.elements.__categories[category]) {
+        window.elements.__categories[category] = [];
     }
 
-    if(
-        !window.elements.__categories[
-            category
-        ].includes(name)
-    ){
-        window.elements.__categories[
-            category
-        ].push(name);
+    if (!window.elements.__categories[category].includes(name)) {
+        window.elements.__categories[category].push(name);
     }
 
-    console.log(
-        "🧱 REGISTERED:",
-        name
-    );
+    console.log("🧱 REGISTERED:", name);
 };
 
 // =============================
-// REFRESH
+// REFRESH UI
 // =============================
 
-function refreshUI(){
-
+function refreshUI() {
     try {
-
-        if(
-            typeof rebuildPalette ===
-            "function"
-        ){
-            rebuildPalette();
-        }
-
-        if(
-            typeof updatePalette ===
-            "function"
-        ){
-            updatePalette();
-        }
-
-        window.dispatchEvent(
-            new Event("resize")
-        );
-
-    } catch(err){
-
-        console.error(
-            "Refresh fail",
-            err
-        );
+        window.rebuildPalette?.();
+        window.updatePalette?.();
+        window.dispatchEvent(new Event("resize"));
+    } catch (err) {
+        console.error("Refresh fail", err);
     }
 }
 
 // =============================
-// CONSOLE
+// CONSOLE HOOK
 // =============================
 
-function setupConsole(){
+function setupConsole() {
+    const oldLog = console.log;
+    const oldWarn = console.warn;
+    const oldError = console.error;
 
-    const oldLog =
-        console.log;
+    function write(type, args) {
+        const box = document.getElementById("console");
+        if (!box) return;
 
-    const oldWarn =
-        console.warn;
-
-    const oldError =
-        console.error;
-
-    function write(
-        type,
-        args
-    ){
-
-        const box =
-            document.getElementById(
-                "console"
-            );
-
-        if(!box){
-            return;
-        }
-
-        const text =
-            `[${type}] ` +
-            args.join(" ");
-
-        box.textContent +=
-            text + "\n";
-
-        box.scrollTop =
-            box.scrollHeight;
+        const text = `[${type}] ` + args.join(" ");
+        box.textContent += text + "\n";
+        box.scrollTop = box.scrollHeight;
     }
 
-    console.log =
-    (...args)=>{
-
+    console.log = (...args) => {
         oldLog(...args);
-
-        write(
-            "LOG",
-            args
-        );
+        write("LOG", args);
     };
 
-    console.warn =
-    (...args)=>{
-
+    console.warn = (...args) => {
         oldWarn(...args);
-
-        write(
-            "WARN",
-            args
-        );
+        write("WARN", args);
     };
 
-    console.error =
-    (...args)=>{
-
+    console.error = (...args) => {
         oldError(...args);
-
-        write(
-            "ERROR",
-            args
-        );
+        write("ERROR", args);
     };
 }
+
 // =============================
 // FETCH MOD
 // =============================
 
-async function fetchMod(url){
+async function fetchMod(url) {
+    console.log("🌐 Fetching:", url);
 
-    console.log(
-        "🌐 Fetching:",
-        url
-    );
-
-    const res =
-        await fetch(url);
-
-    if(!res.ok){
-
-        throw new Error(
-            "Fetch failed: " +
-            res.status
-        );
-    }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Fetch failed: " + res.status);
 
     return await res.text();
 }
 
 // =============================
-// COMPILE MOD
+// COMPILER
 // =============================
 
-function compileMod(code){
-
+function compileMod(code) {
     return code;
 }
 
@@ -290,50 +159,22 @@ function compileMod(code){
 // RUN MOD
 // =============================
 
-function runMod(
-    code,
-    id
-){
-
+function runMod(code, id) {
     try {
-
-        const compiled =
-            compileMod(code);
-
-        const fn =
-            new Function(
-                "window",
-                "elements",
-                "registerElement",
-                compiled
-            );
-
-        fn(
-            window,
-            window.elements,
-            window.registerElement
+        const fn = new Function(
+            "window",
+            "elements",
+            "registerElement",
+            code
         );
 
-        console.log(
-            "✅ Loaded:",
-            id
-        );
+        fn(window, window.elements, window.registerElement);
 
+        console.log("✅ Loaded:", id);
         return true;
-
-    } catch(err){
-
-        console.error(
-            "❌ Mod Error:",
-            id,
-            err
-        );
-
-        ModLoader.errors.push({
-            id,
-            error: err
-        });
-
+    } catch (err) {
+        console.error("❌ Mod Error:", id, err);
+        window.ModLoader.errors.push({ id, error: err });
         return false;
     }
 }
@@ -342,61 +183,25 @@ function runMod(
 // LOAD MOD
 // =============================
 
-async function loadMod(
-    url
-){
-
+async function loadMod(url) {
     try {
+        const code = await fetchMod(url);
+        const id = url.split("/").pop();
 
-        const code =
-            await fetchMod(
-                url
-            );
+        const ok = runMod(code, id);
 
-        const id =
-            url.split("/")
-               .pop();
+        if (ok) {
+            window.ModLoader.mods[id] = { url, code, loaded: Date.now() };
 
-        const ok =
-            runMod(
-                code,
-                id
-            );
-
-        if(ok){
-
-            ModLoader.mods[
-                id
-            ] = {
-                id,
-                url,
-                code,
-                loaded:
-                    Date.now()
-            };
-
-            if(
-                !ModLoader.loaded.includes(
-                    id
-                )
-            ){
-                ModLoader.loaded.push(
-                    id
-                );
+            if (!window.ModLoader.loaded.includes(id)) {
+                window.ModLoader.loaded.push(id);
             }
         }
 
         refreshUI();
-
         updateUI();
-
-    } catch(err){
-
-        console.error(
-            "Load Fail:",
-            url,
-            err
-        );
+    } catch (err) {
+        console.error("Load Fail:", url, err);
     }
 }
 
@@ -404,98 +209,38 @@ async function loadMod(
 // LOAD ALL
 // =============================
 
-async function loadAll(){
-
-    console.log(
-        "🚀 Loading all mods..."
-    );
-
-    for(
-        const url
-        of MODS
-    ){
-
-        await loadMod(
-            url
-        );
+async function loadAll() {
+    console.log("🚀 Loading all mods...");
+    for (const url of MODS) {
+        await loadMod(url);
     }
-
-    console.log(
-        "✅ All mods loaded"
-    );
+    console.log("✅ All mods loaded");
 }
 
 // =============================
-// AUTO RELOAD
+// FORCE SYNC
 // =============================
 
-async function autoReloadMods(){
+function forceRegistryCommit() {
+    for (const key in window.elements) {
+        if (key.startsWith("__")) continue;
 
-    console.log(
-        "♻ Auto reload"
-    );
-
-    await loadAll();
-}
-
-// =============================
-// FORCE REGISTRY COMMIT
-// =============================
-
-function forceRegistryCommit(){
-
-    for(
-        const key
-        in window.elements
-    ){
-
-        if(
-            key.startsWith(
-                "__"
-            )
-        ){
-            continue;
-        }
-
-        if(
-            !window.elements
-            .__registry[key]
-        ){
-
-            registerElement(
-                key,
-                window.elements[
-                    key
-                ]
-            );
+        if (!window.elements.__registry[key]) {
+            window.registerElement(key, window.elements[key]);
         }
     }
 }
 
 // =============================
-// TOGGLE
+// TOGGLE UI
 // =============================
 
-function createToggle(){
+function createToggle() {
+    if (document.getElementById("modToggle")) return;
 
-    if(
-        document.getElementById(
-            "modToggle"
-        )
-    ){
-        return;
-    }
-
-    const btn =
-        document.createElement(
-            "button"
-        );
-
-    btn.id =
-        "modToggle";
-
-    btn.textContent =
-        "🔥 Mods";
+    const btn = document.createElement("button");
+    btn.id = "modToggle";
+    btn.textContent = "🔥 Mods";
 
     btn.style.cssText = `
         position:fixed;
@@ -509,101 +254,24 @@ function createToggle(){
         cursor:pointer;
     `;
 
-    btn.onclick =
-    ()=>{
-
-        const ui =
-            document.getElementById(
-                "modUI"
-            );
-
-        if(!ui){
-            return;
-        }
-
-        ui.style.display =
-            ui.style.display ===
-            "none"
-            ? "flex"
-            : "none";
+    btn.onclick = () => {
+        const ui = document.getElementById("modUI");
+        if (!ui) return;
+        ui.style.display = ui.style.display === "none" ? "flex" : "none";
     };
 
-    document.body.appendChild(
-        btn
-    );
+    document.body.appendChild(btn);
 }
 
 // =============================
-// LOADER INFO
+// UI
 // =============================
 
-function updateLoaderInfo(){
+function createUI() {
+    if (document.getElementById("modUI")) return;
 
-    const box =
-        document.getElementById(
-            "loaderInfo"
-        );
-
-    if(!box){
-        return;
-    }
-
-    box.innerHTML = `
-        <h3>
-            ${ModLoader.name}
-        </h3>
-
-        <div>
-            Version:
-            ${ModLoader.version}
-        </div>
-
-        <br>
-
-        <b>Authors</b>
-        <br>
-        ${
-            ModLoader.authors.join(
-                "<br>"
-            )
-        }
-
-        <br><br>
-
-        <b>Features</b>
-        <br>
-        ${
-            ModLoader.features
-            .map(
-                x =>
-                "• " + x
-            )
-            .join("<br>")
-        }
-    `;
-}
-
-// =============================
-// CREATE UI
-// =============================
-
-function createUI(){
-
-    if(
-        document.getElementById(
-            "modUI"
-        )
-    ){
-        return;
-    }
-
-    const ui =
-        document.createElement(
-            "div"
-        );
-
-    ui.id =
-        "modUI";
+    const ui = document.createElement("div");
+    ui.id = "modUI";
 
     ui.style.cssText = `
         position:fixed;
@@ -616,152 +284,56 @@ function createUI(){
     `;
 
     ui.innerHTML = `
-        <div
-            style="
-            width:320px;
-            padding:10px;
-            border-right:
-            1px solid #222;
-        ">
-            <div
-                id="loaderInfo">
-            </div>
+        <div style="width:320px;padding:10px;border-right:1px solid #222;">
+            <h3>${window.ModLoader.name} ${window.ModLoader.version}</h3>
 
-            <hr>
-
-            <input
-                id="url"
-                placeholder="mod url"
-                style="
-                width:100%;
-                padding:6px;
-            ">
+            <input id="url" style="width:100%;padding:6px;" placeholder="mod url">
 
             <br><br>
 
-            <button
-                id="addMod">
-                Add
-            </button>
-
-            <button
-                id="loadMods">
-                Load
-            </button>
+            <button id="addMod">Add</button>
+            <button id="loadMods">Load</button>
 
             <hr>
 
-            <div
-                id="mods">
-            </div>
+            <div id="mods"></div>
         </div>
 
-        <div
-            style="
-            flex:1;
-            padding:10px;
-            overflow:auto;
-        ">
-
-            <h3>
-                Console
-            </h3>
-
-            <pre
-                id="console"
-                style="
-                white-space:
-                pre-wrap;
-            ">
-            </pre>
-
+        <div style="flex:1;padding:10px;">
+            <pre id="console"></pre>
         </div>
     `;
 
-    document.body.appendChild(
-        ui
-    );
+    document.body.appendChild(ui);
 
-    document
-    .getElementById(
-        "addMod"
-    )
-    .onclick =
-    ()=>{
+    document.getElementById("addMod").onclick = () => {
+        const url = document.getElementById("url").value.trim();
+        if (!url) return;
 
-        const url =
-            document
-            .getElementById(
-                "url"
-            )
-            .value
-            .trim();
-
-        if(!url){
-            return;
-        }
-
-        if(
-            !MODS.includes(
-                url
-            )
-        ){
-
-            MODS.push(
-                url
-            );
-
+        if (!MODS.includes(url)) {
+            MODS.push(url);
             saveMods();
-
             updateUI();
         }
     };
 
-    document
-    .getElementById(
-        "loadMods"
-    )
-    .onclick =
-    ()=>{
-
-        loadAll();
-    };
+    document.getElementById("loadMods").onclick = loadAll;
 }
 
 // =============================
-// UPDATE UI
+// UI UPDATE
 // =============================
 
-function updateUI(){
-
-    const box =
-        document.getElementById(
-            "mods"
-        );
-
-    if(!box){
-        return;
-    }
+function updateUI() {
+    const box = document.getElementById("mods");
+    if (!box) return;
 
     box.innerHTML = "";
 
-    for(
-        const url
-        of MODS
-    ){
-
-        const div =
-            document.createElement(
-                "div"
-            );
-
-        div.textContent =
-            "🟢 " +
-            url;
-
-        box.appendChild(
-            div
-        );
+    for (const url of MODS) {
+        const div = document.createElement("div");
+        div.textContent = "🟢 " + url;
+        box.appendChild(div);
     }
 }
 
@@ -769,30 +341,20 @@ function updateUI(){
 // BOOT
 // =============================
 
-async function boot(){
-
+async function boot() {
     loadSavedMods();
-
     createUI();
-
     createToggle();
-
     setupConsole();
 
-    updateLoaderInfo();
-
     updateUI();
+    updateLoaderInfo?.();
 
     await loadAll();
 
-    setInterval(
-        forceRegistryCommit,
-        2000
-    );
+    setInterval(forceRegistryCommit, 2000);
 
-    console.log(
-        "🔥 MODLOADER V8 READY"
-    );
+    console.log("🔥 MODLOADER V8 READY");
 }
 
 boot();
