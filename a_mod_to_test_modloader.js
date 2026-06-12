@@ -1,37 +1,23 @@
-console.log("🔥 REAL Sandboxels Loader");
+// =====================================
+// SUS BLOCK MOD
+// =====================================
 
-// MOD LIST
-window.MODS = window.MODS || [];
+console.log("🟣 SUS MOD LOADED");
 
-// LOAD VIA SCRIPT TAG (IMPORTANT FIX)
-function loadMod(url){
+// SUS BLOCK
+elements.sus_block = {
+    color: "#ff00ff",
+    behavior: behaviors.WALL,
+    category: "special",
+    state: "solid",
+    density: 9999,
 
-    return new Promise((resolve, reject) => {
-
-        const s = document.createElement("script");
-
-        s.src = url;
-        s.onload = () => {
-            console.log("✅ Loaded mod:", url);
-            resolve(url);
-        };
-
-        s.onerror = () => {
-            console.error("❌ Failed:", url);
-            reject(url);
-        };
-
-        document.body.appendChild(s);
-    });
-}
-
-// LOAD ALL
-async function loadAll(){
-    for(const m of MODS){
-        await loadMod(m);
+    tick: function(pixel){
+        // optional fun effect
+        if(Math.random() < 0.001){
+            pixel.color = "#ff00ff";
+        }
     }
-}
+};
 
-setTimeout(loadAll, 1000);
-
-console.log("🔥 READY (Sandboxels compatible)");
+console.log("🧱 sus_block registered");
