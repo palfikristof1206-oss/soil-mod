@@ -1,12 +1,12 @@
-console.log("🔥 MODLOADER V8 FIXED BOOTING...");
+console.log("🔥 MODLOADER V9 ULTIMATE BOOTING...");
 
 // =============================
-// STATE
+// V9 CORE STATE
 // =============================
 
 window.ModLoader = {
     name: "Sandboxels Mod Loader",
-    version: "V8-FIX",
+    version: "V9-ULTIMATE",
     authors: ["Sussy baka"],
     features: [
         "Author List",
@@ -18,7 +18,10 @@ window.ModLoader = {
         "Auto Reload",
         "LocalStorage Save",
         "Palette Refresh",
-        "Mod List UI"
+        "Mod List UI",
+        "Sandbox API Bridge",
+        "Execution Debugger",
+        "Fetch Logger"
     ],
     mods: {},
     loaded: [],
@@ -26,10 +29,10 @@ window.ModLoader = {
 };
 
 window.MODS = window.MODS || [];
-const STORAGE_KEY = "sandboxels_mods_v8";
+const STORAGE_KEY = "sandboxels_mods_v9";
 
 // =============================
-// ELEMENT INIT
+// ELEMENT SYSTEM INIT
 // =============================
 
 window.elements = window.elements || {};
@@ -37,12 +40,16 @@ window.elements.__registry = window.elements.__registry || {};
 window.elements.__categories = window.elements.__categories || {};
 
 // =============================
-// SAVE / LOAD (FIXED)
+// SAVE / LOAD (ROBUST)
 // =============================
 
 function saveMods() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(window.MODS));
-    console.log("💾 SAVED:", window.MODS.length);
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.MODS));
+        console.log("💾 SAVED MODS:", window.MODS.length);
+    } catch (e) {
+        console.error("SAVE FAIL", e);
+    }
 }
 
 function loadSavedMods() {
@@ -50,7 +57,7 @@ function loadSavedMods() {
         const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
         if (Array.isArray(data)) {
             window.MODS = data;
-            console.log("📦 LOADED:", data.length);
+            console.log("📦 LOADED MODS:", data.length);
         }
     } catch (e) {
         console.error("LOAD FAIL", e);
@@ -58,7 +65,7 @@ function loadSavedMods() {
 }
 
 // =============================
-// REGISTER ELEMENT
+// SAFE REGISTER (SANDBOXELS COMPATIBLE)
 // =============================
 
 window.registerElement = function (name, data) {
@@ -68,7 +75,10 @@ window.registerElement = function (name, data) {
 
     const cat = data.category || "uncategorized";
 
-    window.elements.__registry[name] = true;
+    window.elements.__registry[name] = {
+        ts: Date.now(),
+        category: cat
+    };
 
     if (!window.elements.__categories[cat]) {
         window.elements.__categories[cat] = [];
@@ -82,48 +92,90 @@ window.registerElement = function (name, data) {
 };
 
 // =============================
-// REFRESH
+// UI REFRESH ENGINE
 // =============================
 
 function refreshUI() {
-    window.rebuildPalette?.();
-    window.updatePalette?.();
-    window.dispatchEvent(new Event("resize"));
+    try {
+        window.rebuildPalette?.();
+        window.updatePalette?.();
+        window.dispatchEvent(new Event("resize"));
+    } catch (e) {
+        console.error("UI REFRESH FAIL", e);
+    }
 }
 
 // =============================
-// FETCH MOD
+// FETCHER (DEBUG HEAVY)
 // =============================
 
 async function fetchMod(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Fetch failed " + res.status);
-    return await res.text();
+    console.log("🌐 FETCH START:", url);
+
+    try {
+        const res = await fetch(url);
+
+        console.log("🌐 STATUS:", res.status);
+
+        if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+        }
+
+        const txt = await res.text();
+
+        console.log("📦 MOD SIZE:", txt.length);
+
+        return txt;
+
+    } catch (e) {
+        console.error("FETCH FAIL:", url, e);
+        throw e;
+    }
 }
 
 // =============================
-// RUN MOD
+// COMPILER (RAW PASS)
+// =============================
+
+function compileMod(code) {
+    return code; // Sandboxels mod = raw JS
+}
+
+// =============================
+// RUNNER (FIXED CONTEXT)
 // =============================
 
 function runMod(code, id) {
     try {
-        new Function(
+        const fn = new Function(
             "window",
             "elements",
             "registerElement",
+            "behaviors",
+            "console",
             code
-        )(window, window.elements, window.registerElement);
+        );
+
+        fn(
+            window,
+            window.elements,
+            window.registerElement,
+            window.behaviors,
+            console
+        );
 
         console.log("✅ LOADED:", id);
         return true;
+
     } catch (e) {
         console.error("❌ MOD ERROR:", id, e);
+        window.ModLoader.errors.push({ id, error: e });
         return false;
     }
 }
 
 // =============================
-// LOAD MOD (FIXED ORDER)
+// LOAD MOD (CORRECT PIPELINE)
 // =============================
 
 async function loadMod(url) {
@@ -134,7 +186,11 @@ async function loadMod(url) {
         const ok = runMod(code, id);
 
         if (ok) {
-            window.ModLoader.mods[id] = { url, code };
+            window.ModLoader.mods[id] = {
+                url,
+                code,
+                time: Date.now()
+            };
 
             if (!window.ModLoader.loaded.includes(id)) {
                 window.ModLoader.loaded.push(id);
@@ -163,7 +219,16 @@ async function loadAll() {
 }
 
 // =============================
-// FORCE SYNC
+// AUTO RELOAD
+// =============================
+
+async function autoReloadMods() {
+    console.log("♻ AUTO RELOAD");
+    await loadAll();
+}
+
+// =============================
+// FORCE SYNC ENGINE
 // =============================
 
 function forceRegistryCommit() {
@@ -176,7 +241,7 @@ function forceRegistryCommit() {
 }
 
 // =============================
-// UI TOGGLE
+// TOGGLE BUTTON
 // =============================
 
 function createToggle() {
@@ -208,7 +273,7 @@ function createToggle() {
 }
 
 // =============================
-// LOADER INFO (FIXED)
+// LOADER INFO PANEL
 // =============================
 
 function updateLoaderInfo() {
@@ -218,21 +283,17 @@ function updateLoaderInfo() {
     box.innerHTML = `
         <h2>${window.ModLoader.name}</h2>
         <div>Version: ${window.ModLoader.version}</div>
-
         <hr>
-
         <b>Authors</b><br>
         ${window.ModLoader.authors.map(a => "• " + a).join("<br>")}
-
         <hr>
-
         <b>Features</b><br>
         ${window.ModLoader.features.map(f => "• " + f).join("<br>")}
     `;
 }
 
 // =============================
-// UI
+// UI CREATE
 // =============================
 
 function createUI() {
@@ -257,6 +318,7 @@ function createUI() {
             <hr>
 
             <input id="url" style="width:100%;padding:6px;" placeholder="mod url">
+
             <br><br>
 
             <button id="addMod">ADD</button>
@@ -266,23 +328,22 @@ function createUI() {
             <div id="mods"></div>
         </div>
 
-        <div style="flex:1;padding:10px;">
+        <div style="flex:1;padding:10px;overflow:auto;">
+            <h3>Console</h3>
             <pre id="console"></pre>
         </div>
     `;
 
     document.body.appendChild(ui);
 
-    // FIX: ADD BUTTON + SAVE GUARANTEE
     document.getElementById("addMod").onclick = () => {
         const url = document.getElementById("url").value.trim();
         if (!url) return;
 
         if (!window.MODS.includes(url)) {
             window.MODS.push(url);
-            saveMods();          // <<< FIXED
+            saveMods();
             updateUI();
-            console.log("💾 ADDED:", url);
         }
     };
 
@@ -290,7 +351,7 @@ function createUI() {
 }
 
 // =============================
-// UI UPDATE (FIXED)
+// UI UPDATE
 // =============================
 
 function updateUI() {
@@ -307,21 +368,21 @@ function updateUI() {
 }
 
 // =============================
-// BOOT (FIXED ORDER)
+// BOOT
 // =============================
 
 async function boot() {
-    loadSavedMods();     // 1
-    createUI();          // 2
-    createToggle();      // 3
-    updateLoaderInfo();  // 4
-    updateUI();          // 5
+    loadSavedMods();
+    createUI();
+    createToggle();
+    updateLoaderInfo();
+    updateUI();
 
-    await loadAll();     // 6
+    await loadAll();
 
     setInterval(forceRegistryCommit, 2000);
 
-    console.log("🔥 MODLOADER V8 FIX READY");
+    console.log("🔥 MODLOADER V9 READY");
 }
 
 boot();
