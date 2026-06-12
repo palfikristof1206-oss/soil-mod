@@ -1,4 +1,4 @@
-console.log("🔥 V4 ULTIMATE FIXED BOOTING...");
+console.log("🔥 V6 ULTIMATE FIXED BOOTING...");
 
 // =============================
 // STATE
@@ -37,51 +37,74 @@ function loadSavedMods(){
 }
 
 // =============================
-// 🧱 ELEMENT REGISTRY (FULL FIXED)
+// 🧱 SINGLE TRUE REGISTER SYSTEM
 // =============================
 
 if(!window.elements) window.elements = {};
+window.elements.__registry = window.elements.__registry || {};
+window.elements.__categories = window.elements.__categories || {};
 
 window.registerElement = function(name, data){
 
-    // CORE REGISTER
-    elements[name] = data;
+    // CORE STORE
+    window.elements[name] = data;
 
-    // CATEGORY SYSTEM FIX
-    if(!elements.__categories){
-        elements.__categories = {};
-    }
+    // REGISTRY MARK
+    window.elements.__registry[name] = true;
 
+    // CATEGORY INDEX
     const cat = data.category || "uncategorized";
 
-    if(!elements.__categories[cat]){
-        elements.__categories[cat] = [];
+    if(!window.elements.__categories[cat]){
+        window.elements.__categories[cat] = [];
     }
 
-    if(!elements.__categories[cat].includes(name)){
-        elements.__categories[cat].push(name);
+    if(!window.elements.__categories[cat].includes(name)){
+        window.elements.__categories[cat].push(name);
     }
 
-    // FORCE SANDBOXELS UI REFRESH
+    // HARD REFRESH (3 STAGE)
     const refresh = () => {
-        if(typeof window.rebuildPalette === "function") window.rebuildPalette();
-        if(typeof window.updatePalette === "function") window.updatePalette();
-
+        if(window.rebuildPalette) window.rebuildPalette();
+        if(window.updatePalette) window.updatePalette();
         window.dispatchEvent(new Event("resize"));
     };
 
     requestAnimationFrame(refresh);
-    setTimeout(refresh, 50);
+    setTimeout(refresh, 10);
+    setTimeout(refresh, 100);
 
     console.log("🧱 REGISTERED:", name, "→", cat);
 };
 
 // =============================
-// 🧠 OPTIONAL: MOD FORMAT CONVERTER (HOOK)
+// 🔁 FORCE SYNC ENGINE (IMPORTANT)
 // =============================
-// ha valaki sima formát ír:
-// sus_block = { ... }
-// akkor ezt átalakítja registerElement-re
+
+function forceRegistryCommit(){
+
+    if(!window.elements) return;
+
+    for(const key in window.elements){
+
+        if(key.startsWith("__")) continue;
+
+        if(!window.elements.__registry[key]){
+            window.registerElement(key, window.elements[key]);
+        }
+    }
+
+    if(window.rebuildPalette) window.rebuildPalette();
+    if(window.updatePalette) window.updatePalette();
+
+    console.log("💾 REGISTRY FULL SYNC DONE");
+}
+
+setInterval(forceRegistryCommit, 1000);
+
+// =============================
+// 🧠 MOD COMPILER (SIMPLE + SAFE)
+// =============================
 
 function compileMod(code){
 
@@ -117,13 +140,12 @@ async function fetchMod(url){
 }
 
 // =============================
-// RUN MOD (WITH COMPILER)
+// RUN MOD
 // =============================
 
 function runMod(code, id){
 
     try {
-
         const compiled = compileMod(code);
 
         const fn = new Function(
@@ -197,7 +219,7 @@ async function autoReapplyMods(){
 }
 
 // =============================
-// UI BUTTON
+// UI
 // =============================
 
 const toggleBtn = document.createElement("div");
@@ -222,91 +244,7 @@ box-shadow:0 0 15px rgba(0,200,255,0.8);
 document.body.appendChild(toggleBtn);
 
 // =============================
-// UI
-// =============================
-
-function createUI(){
-
-    const ui = document.createElement("div");
-    ui.id = "modUI";
-
-    ui.style = `
-        position:fixed;
-        inset:0;
-        background: radial-gradient(circle at center,#050816,#000);
-        color:white;
-        font-family:monospace;
-        display:flex;
-        z-index:999998;
-    `;
-
-    ui.innerHTML = `
-        <div style="width:320px;padding:10px;border-right:1px solid #222;">
-
-            <h2>🔥 MOD LOADER V4</h2>
-
-            <input id="url" placeholder="RAW github mod"
-                style="width:100%;padding:6px;"><br><br>
-
-            <button id="add">ADD</button>
-            <button id="load">LOAD</button>
-
-            <hr>
-
-            <div id="mods"></div>
-
-        </div>
-
-        <div style="flex:1;padding:10px;">
-            <pre id="console"></pre>
-        </div>
-    `;
-
-    document.body.appendChild(ui);
-
-    document.getElementById("add").onclick = () => {
-        const v = document.getElementById("url").value;
-        if(v){
-            MODS.push(v);
-            saveMods();
-            updateUI();
-        }
-    };
-
-    document.getElementById("load").onclick = loadAll;
-}
-
-// =============================
-// UI UPDATE
-// =============================
-
-function updateUI(){
-
-    const box = document.getElementById("mods");
-    if(!box) return;
-
-    box.innerHTML = "";
-
-    for(const id in ModLoader.mods){
-        box.innerHTML += `<div>🟢 ${id}</div>`;
-    }
-}
-
-// =============================
-// CONSOLE HOOK
-// =============================
-
-(function(){
-    const log = console.log;
-    console.log = function(...args){
-        log(...args);
-        const c = document.getElementById("console");
-        if(c) c.innerText += args.join(" ") + "\n";
-    };
-})();
-
-// =============================
-// TOGGLE UI
+// UI TOGGLE
 // =============================
 
 toggleBtn.onclick = () => {
@@ -326,4 +264,4 @@ setTimeout(() => {
     autoReapplyMods();
 }, 1200);
 
-console.log("🔥 V4 ULTIMATE READY");
+console.log("🔥 V6 READY");
