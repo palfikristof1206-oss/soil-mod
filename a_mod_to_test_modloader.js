@@ -1,23 +1,21 @@
-// =====================================
-// SUS BLOCK MOD
-// =====================================
+// SUS BLOCK MOD (Sandboxels Compatible)
 
-console.log("🟣 SUS MOD LOADED");
+console.log("🟣 SUS BLOCK loading...");
 
-// SUS BLOCK
-elements.sus_block = {
+registerElement("sus_block", {
     color: "#ff00ff",
     behavior: behaviors.WALL,
-    category: "special",
+    category: "solids",
     state: "solid",
-    density: 9999,
+    density: 2000,
 
+    breakInto: "dirt",
     tick: function(pixel){
-        // optional fun effect
-        if(Math.random() < 0.001){
-            pixel.color = "#ff00ff";
+        // idle anim / fun logic
+        if(Math.random() < 0.0005){
+            pixel.color = Math.random() > 0.5 ? "#ff00ff" : "#cc00ff";
         }
     }
-};
+});
 
-console.log("🧱 sus_block registered");
+console.log("🟣 SUS BLOCK READY");
