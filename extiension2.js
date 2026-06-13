@@ -1,66 +1,47 @@
 // =====================================
-// Soil Expansion v3.1 - FULL FIXED SAFE PACK
+// Soil Expansion v3.1 - EXTENSION 2 (MERGED SAFE LAYER)
 // =====================================
 
-console.log("Soil Expansion v3.1 FIXED loading...");
+console.log("Soil Expansion Extension2 FIXED loading...");
 
 // =============================
-// SAFE CORE HELPERS
+// SAFE HELPER (LOCAL ONLY)
 // =============================
 
 function safe(fn){
     try { fn(); } catch(e){
-        console.log("[Soil v3.1 error]", e);
-    }
-}
-
-function getBelow(p){
-    try{
-        return pixelMap?.[p.x]?.[p.y+1];
-    }catch(e){
-        return null;
-    }
-}
-
-function getAbove(p){
-    try{
-        return pixelMap?.[p.x]?.[p.y-1];
-    }catch(e){
-        return null;
+        console.log("[Soil Ext2 error]", e);
     }
 }
 
 // =============================
-// 🌱 ROOT SYSTEM (SAFE)
+// ROOT SYSTEM EXTENSION (SAFE MERGED)
 // =============================
 
 safe(() => {
 
 function rootSpread(pixel){
 
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
 
-    for(let d of dirs){
+    for(const d of dirs){
 
-        let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
-        if(!p) continue;
+        const n = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
+        if(!n) continue;
 
-        if(p.element === "fertile_soil" && Math.random() < 0.01){
-            if(typeof changePixel === "function"){
-                changePixel(p, "rich_soil");
-            }
+        // soil upgrade (LOW CHANCE ONLY)
+        if(n.element === "fertile_soil" && Math.random() < 0.005){
+            changePixel(n, "rich_soil");
         }
 
-        if(p.element === "rich_soil" && Math.random() < 0.005){
-            if(typeof changePixel === "function"){
-                changePixel(p, "super_fertile_soil");
-            }
+        if(n.element === "rich_soil" && Math.random() < 0.002){
+            changePixel(n, "super_fertile_soil");
         }
     }
 }
 
-// attach safely
-if(elements.wheat_seed && !elements.wheat_seed._soil_v31){
+// attach wheat seed ONLY ONCE (GLOBAL SAFE FLAG)
+if(elements.wheat_seed && !elements.wheat_seed._ext2){
 
     const old = elements.wheat_seed.tick;
 
@@ -70,55 +51,48 @@ if(elements.wheat_seed && !elements.wheat_seed._soil_v31){
 
         pixel.growth = pixel.growth || 0;
 
-        let below = getBelow(pixel);
+        let below = pixelMap?.[pixel.x]?.[pixel.y+1];
 
         if(below){
 
-            if(below.element === "rich_soil" ||
-               below.element === "fertile_soil" ||
-               below.element === "moist_soil"){
-                pixel.growth += 0.02;
-            }
-
-            if(below.element === "dry_soil"){
-                pixel.growth += 0.005;
-            }
+            if(below.element === "rich_soil") pixel.growth += 0.02;
+            else if(below.element === "fertile_soil") pixel.growth += 0.015;
+            else if(below.element === "moist_soil") pixel.growth += 0.01;
         }
 
         if(pixel.growth > 1){
-            if(typeof changePixel === "function"){
-                changePixel(pixel, "plant");
-            }
+            changePixel(pixel, "plant");
         }
 
         rootSpread(pixel);
     };
 
-    elements.wheat_seed._soil_v31 = true;
+    elements.wheat_seed._ext2 = true;
 }
 
 });
 
 // =============================
-// 🧪 NUTRIENT DEPLETION (SAFE EXTEND)
+// NUTRIENT SYSTEM (BALANCED)
 // =============================
 
 safe(() => {
 
 function nutrientDrain(pixel){
 
-    if(pixel.element === "rich_soil" && Math.random() < 0.0005){
-        changePixel?.(pixel, "fertile_soil");
+    // ⚠️ ONLY SLOW NATURAL DEGRADATION
+    if(pixel.element === "rich_soil" && Math.random() < 0.0002){
+        changePixel(pixel, "fertile_soil");
     }
 
-    if(pixel.element === "fertile_soil" && Math.random() < 0.0003){
-        changePixel?.(pixel, "dirt");
+    if(pixel.element === "fertile_soil" && Math.random() < 0.0001){
+        changePixel(pixel, "dirt");
     }
 }
 
 function wrap(name){
 
-    if(!elements[name] || elements[name]._nutri_v31) return;
+    if(!elements[name] || elements[name]._nutri_ext2) return;
 
     const old = elements[name].tick;
 
@@ -127,7 +101,7 @@ function wrap(name){
         nutrientDrain(pixel);
     };
 
-    elements[name]._nutri_v31 = true;
+    elements[name]._nutri_ext2 = true;
 }
 
 wrap("rich_soil");
@@ -136,87 +110,12 @@ wrap("fertile_soil");
 });
 
 // =============================
-// 🌍 SOIL LAYERS (SAFE FIXED)
+// EARTHWORM SYSTEM (MERGED SAFE ECO LAYER)
 // =============================
 
 safe(() => {
 
-function soilLayers(pixel){
-
-    if(pixel.y > 200){
-
-        if(pixel.element === "dirt" && Math.random() < 0.001){
-            changePixel?.(pixel, "clay_soil_plus");
-        }
-    }
-}
-
-if(elements.dirt && !elements.dirt._layer_v31){
-
-    const old = elements.dirt.tick;
-
-    elements.dirt.tick = function(pixel){
-        if(old) old(pixel);
-        soilLayers(pixel);
-    };
-
-    elements.dirt._layer_v31 = true;
-}
-
-});
-
-// =============================
-// ⚗️ pH SYSTEM (SAFE)
-// =============================
-
-safe(() => {
-
-function phBoost(pixel){
-
-    let below = getBelow(pixel);
-    if(!below) return 1;
-
-    switch(below.element){
-        case "acidic_soil": return 0.7;
-        case "neutral_soil": return 1;
-        case "alkaline_soil": return 0.9;
-        case "rich_soil": return 1.3;
-        case "super_fertile_soil": return 1.8;
-        default: return 1;
-    }
-}
-
-if(elements.tomato_seed && !elements.tomato_seed._ph_v31){
-
-    const old = elements.tomato_seed.tick;
-
-    elements.tomato_seed.tick = function(pixel){
-
-        if(old) old(pixel);
-
-        let mult = phBoost(pixel);
-
-        pixel.growth = pixel.growth || 0;
-
-        pixel.growth += 0.02 * mult;
-
-        if(pixel.growth > 1){
-            changePixel?.(pixel, "plant");
-        }
-    };
-
-    elements.tomato_seed._ph_v31 = true;
-}
-
-});
-
-// =============================
-// 🪱 EARTHWORM SYSTEM (SAFE)
-// =============================
-
-safe(() => {
-
-if(elements.earthworm && !elements.earthworm._v31){
+if(elements.earthworm && !elements.earthworm._ext2){
 
     const old = elements.earthworm.tick;
 
@@ -224,49 +123,58 @@ if(elements.earthworm && !elements.earthworm._v31){
 
         if(old) old(pixel);
 
-        let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
 
-        for(let d of dirs){
+        // LIMIT ACTIONS PER TICK (ANTI LAG)
+        let actions = 0;
 
-            let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
-            if(!p) continue;
+        for(const d of dirs){
 
-            if(p.element === "dirt" && Math.random() < 0.005){
-                changePixel?.(p, "fertile_soil");
+            if(actions > 2) break;
+
+            const n = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
+            if(!n) continue;
+
+            if(n.element === "dirt" && Math.random() < 0.003){
+                changePixel(n, "fertile_soil");
+                actions++;
             }
 
-            if(p.element === "fertile_soil" && Math.random() < 0.01){
-                changePixel?.(p, "rich_soil");
+            if(n.element === "fertile_soil" && Math.random() < 0.004){
+                changePixel(n, "rich_soil");
+                actions++;
             }
         }
     };
 
-    elements.earthworm._v31 = true;
+    elements.earthworm._ext2 = true;
 }
 
 });
 
 // =============================
-// ⚠️ FERTILIZER OVERUSE (SAFE)
+// FERTILIZER BALANCE FIX
 // =============================
 
 safe(() => {
 
 function fertilizer(pixel){
 
-    let below = getBelow(pixel);
+    let below = pixelMap?.[pixel.x]?.[pixel.y+1];
     if(!below) return;
 
     if(["fertilizer_n","fertilizer_p","fertilizer_k"].includes(pixel.element)){
-        if(below.element === "super_fertile_soil" && Math.random() < 0.001){
-            changePixel?.(below, "acidic_soil");
+
+        // ONLY VERY RARE CORRUPTION
+        if(below.element === "super_fertile_soil" && Math.random() < 0.0001){
+            changePixel(below, "acidic_soil");
         }
     }
 }
 
 ["fertilizer_n","fertilizer_p","fertilizer_k"].forEach(name => {
 
-    if(elements[name] && !elements[name]._fert_v31){
+    if(elements[name] && !elements[name]._fert_ext2){
 
         const old = elements[name].tick;
 
@@ -275,9 +183,49 @@ function fertilizer(pixel){
             fertilizer(pixel);
         };
 
-        elements[name]._fert_v31 = true;
+        elements[name]._fert_ext2 = true;
     }
 });
+
+});
+
+// =============================
+// PH BOOST FIX (NO FUNCTION RETURN CHAOS)
+// =============================
+
+safe(() => {
+
+function phBoost(pixel){
+
+    let below = pixelMap?.[pixel.x]?.[pixel.y+1];
+    if(!below) return 1;
+
+    if(below.element === "rich_soil") return 1.2;
+    if(below.element === "super_fertile_soil") return 1.5;
+    if(below.element === "fertile_soil") return 1.1;
+
+    return 1;
+}
+
+if(elements.tomato_seed && !elements.tomato_seed._ph_ext2){
+
+    const old = elements.tomato_seed.tick;
+
+    elements.tomato_seed.tick = function(pixel){
+
+        if(old) old(pixel);
+
+        pixel.growth = pixel.growth || 0;
+
+        pixel.growth += 0.015 * phBoost(pixel);
+
+        if(pixel.growth > 1){
+            changePixel(pixel, "plant");
+        }
+    };
+
+    elements.tomato_seed._ph_ext2 = true;
+}
 
 });
 
@@ -285,4 +233,4 @@ function fertilizer(pixel){
 // END
 // =============================
 
-console.log("Soil Expansion v3.1 FIXED LOADED");
+console.log("Soil Expansion Extension2 FIXED LOADED");
