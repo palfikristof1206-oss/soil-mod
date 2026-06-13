@@ -1,13 +1,14 @@
 // =====================================
-// SOIL-MOD v3.3 - FULL MERGED SANDBOXELS MOD
-// CORE + EXTENSION1 + EXTENSION2
+// SOIL-MOD – MASTER FULL SYSTEM
+// CORE + EXTENSION1 + EXTENSION2 MERGED
+// Sandboxels Mod
 // =====================================
 
-console.log("Soil-Mod v3.3 FULL MERGED loading...");
+console.log("SOIL-MOD MASTER LOADING...");
 
-// =====================================
-// SAFE SYSTEM CORE
-// =====================================
+// =============================
+// SAFE CORE HELPERS
+// =============================
 
 function safeElement(name, data){
     if(!elements[name]){
@@ -20,6 +21,12 @@ function safeElement(name, data){
     }
 }
 
+function addReaction(name, from, result){
+    if(!elements[name]) return;
+    if(!elements[name].reactions) elements[name].reactions = {};
+    elements[name].reactions[from] = result;
+}
+
 function cd(pixel, key, ms){
     const now = Date.now();
     pixel._cd = pixel._cd || {};
@@ -30,35 +37,9 @@ function cd(pixel, key, ms){
     return false;
 }
 
-// tick wrapper (multi-safe)
-function addTick(name, fn){
-    if(!elements[name]) return;
-
-    if(!elements[name]._soil_ticks){
-        elements[name]._soil_ticks = [];
-    }
-
-    elements[name]._soil_ticks.push(fn);
-
-    if(elements[name]._soil_wrapped) return;
-
-    const old = elements[name].tick;
-
-    elements[name].tick = function(pixel){
-        if(old) old(pixel);
-
-        const list = elements[name]._soil_ticks;
-        for(let i = 0; i < list.length; i++){
-            list[i](pixel);
-        }
-    };
-
-    elements[name]._soil_wrapped = true;
-}
-
-// =====================================
-// BASE ELEMENTS
-// =====================================
+// =============================
+// BASE MATERIALS
+// =============================
 
 safeElement("sand", { color:"#d6c39a", behavior:behaviors.POWDER });
 safeElement("dirt", { color:"#6b4f2a", behavior:behaviors.POWDER });
@@ -68,9 +49,9 @@ safeElement("fertilizer_n", { color:"#66cc66", behavior:behaviors.POWDER });
 safeElement("fertilizer_p", { color:"#6699ff", behavior:behaviors.POWDER });
 safeElement("fertilizer_k", { color:"#ffcc66", behavior:behaviors.POWDER });
 
-// =====================================
+// =============================
 // SOIL TYPES
-// =====================================
+// =============================
 
 safeElement("sandy_soil", { color:"#c4a772", behavior:behaviors.POWDER });
 safeElement("fertile_soil", { color:"#3d2416", behavior:behaviors.POWDER });
@@ -81,158 +62,227 @@ safeElement("moist_soil", { color:"#4f3727", behavior:behaviors.POWDER });
 safeElement("eroded_soil", { color:"#9b7f60", behavior:behaviors.POWDER });
 safeElement("compacted_soil", { color:"#6e4b34", behavior:behaviors.STURDYPOWDER });
 
-// =====================================
-// CORE EVOLUTION
-// =====================================
+// =============================
+// ORGANIC MATERIALS
+// =============================
 
+safeElement("compost", { color:"#5a3d22", behavior:behaviors.POWDER });
+safeElement("manure", { color:"#6b4423", behavior:behaviors.POWDER });
+safeElement("peat", { color:"#2a1b12", behavior:behaviors.POWDER });
+
+// =============================
+// PH SYSTEM
+// =============================
+
+safeElement("acidic_soil", { color:"#5a3420", behavior:behaviors.POWDER });
+safeElement("neutral_soil", { color:"#4a2c1b", behavior:behaviors.POWDER });
+safeElement("alkaline_soil", { color:"#8a6b4a", behavior:behaviors.POWDER });
+safeElement("lime", { color:"#dddddd", behavior:behaviors.POWDER });
+
+// =============================
+// BIOLOGY
+// =============================
+
+safeElement("mycorrhiza", { color:"#e8d8b0", behavior:behaviors.POWDER });
+safeElement("earthworm", { color:"#b08c6a", behavior:behaviors.MOVINGPOWDER });
+
+// =============================
+// MACHINE
+// =============================
+
+safeElement("composter", {
+    color:"#8b5a2b",
+    behavior:behaviors.WALL
+});
+
+// =============================
+// SEEDS
+// =============================
+
+safeElement("wheat_seed", { color:"#d9c27a", behavior:behaviors.POWDER });
+safeElement("tomato_seed", { color:"#c04040", behavior:behaviors.POWDER });
+safeElement("potato_seed", { color:"#9b6b43", behavior:behaviors.POWDER });
+
+// =============================
+// WEATHER
+// =============================
+
+safeElement("rain_cloud", {
+    color:"#888888",
+    behavior:[
+        "XX|CR:water|XX",
+        "M1|XX|M1",
+        "XX|XX|XX"
+    ]
+});
+
+// =============================
+// CORE SOIL EVOLUTION
+// =============================
+
+function neighbors(p){
+    return [
+        [1,0],[-1,0],[0,1],[0,-1]
+    ].map(d => pixelMap?.[p.x+d[0]]?.[p.y+d[1]]);
+}
+
+// dirt + sand → sandy
 addTick("dirt", function(p){
-    if(!cd(p,"soil",8000)) return;
-
-    let n = pixelMap?.[p.x+1]?.[p.y] || pixelMap?.[p.x-1]?.[p.y];
-    if(n?.element === "sand"){
+    if(!cd(p,"d",5000)) return;
+    let n = neighbors(p);
+    if(n.find(x=>x?.element==="sand")){
         changePixel(p,"sandy_soil");
     }
 });
 
+// sandy + humus → fertile
 addTick("sandy_soil", function(p){
-    if(!cd(p,"sandy",8000)) return;
-
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(n?.element === "humus"){
-            changePixel(p,"fertile_soil");
-        }
+    if(!cd(p,"s",5000)) return;
+    if(neighbors(p).find(x=>x?.element==="humus")){
+        changePixel(p,"fertile_soil");
     }
 });
 
+// fertile + humus → rich
 addTick("fertile_soil", function(p){
-    if(!cd(p,"fertile",8000)) return;
-
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(n?.element === "humus"){
-            changePixel(p,"rich_soil");
-        }
+    if(!cd(p,"f",5000)) return;
+    if(neighbors(p).find(x=>x?.element==="humus")){
+        changePixel(p,"rich_soil");
     }
 });
 
+// rich + fertilizer → super
 addTick("rich_soil", function(p){
-    if(!cd(p,"rich",8000)) return;
-
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(n?.element?.includes("fertilizer")){
-            changePixel(p,"super_fertile_soil");
-        }
+    if(!cd(p,"r",5000)) return;
+    if(neighbors(p).find(x=>x?.element?.includes("fertilizer"))){
+        changePixel(p,"super_fertile_soil");
     }
 });
 
-// =====================================
-// EXTENSION 1 - ENVIRONMENT
-// =====================================
+// =============================
+// EXTENSION 1 – PLANT GROWTH
+// =============================
 
-// plant growth (wheat)
 addTick("wheat_seed", function(p){
-
-    p.growth = p.growth || 0;
+    p.g = (p.g || 0);
 
     let below = pixelMap?.[p.x]?.[p.y+1];
 
     if(below){
-        if(below.element === "moist_soil") p.growth += 0.03;
-        else if(below.element === "fertile_soil") p.growth += 0.05;
-        else if(below.element === "rich_soil") p.growth += 0.08;
-        else if(below.element === "eroded_soil") p.growth += 0.01;
+        if(below.element==="moist_soil") p.g += 0.02;
+        if(below.element==="fertile_soil") p.g += 0.03;
+        if(below.element==="rich_soil") p.g += 0.05;
+        if(below.element==="super_fertile_soil") p.g += 0.08;
+        if(below.element==="eroded_soil") p.g += 0.005;
     }
 
-    if(p.growth > 1){
+    if(p.g > 1){
         changePixel(p,"plant");
     }
 });
 
-// erosion
+// =============================
+// EXTENSION 1 – EROSION
+// =============================
+
 addTick("moist_soil", function(p){
-    if(Math.random() < 0.0005){
+    if(Math.random()<0.0005){
         changePixel(p,"eroded_soil");
     }
 });
 
-// microbiome (mycorrhiza boost)
+// =============================
+// EXTENSION 1 – MICROBIOME
+// =============================
+
 addTick("mycorrhiza", function(p){
-
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(!n) continue;
-
-        if(n.element === "rich_soil" && Math.random() < 0.01){
-            changePixel(n,"super_fertile_soil");
+    for(let d of neighbors(p)){
+        if(!d) continue;
+        if(d.element==="rich_soil" && Math.random()<0.01){
+            changePixel(d,"super_fertile_soil");
+        }
+        if(d.element==="compost" && Math.random()<0.02){
+            changePixel(d,"humus");
         }
     }
 });
 
-// =====================================
-// EXTENSION 2 - DEEP ECOSYSTEM
-// =====================================
+// =============================
+// EXTENSION 2 – ROOT SYSTEM
+// =============================
 
-// root system
-addTick("fertile_soil", function(p){
-    if(!cd(p,"root",5000)) return;
+addTick("wheat_seed", function(p){
+    for(let d of neighbors(p)){
+        if(!d) continue;
+        if(d.element==="fertile_soil") changePixel(d,"rich_soil");
+        if(d.element==="rich_soil") changePixel(d,"super_fertile_soil");
+    }
+});
 
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(n?.element === "rich_soil"){
-            changePixel(n,"super_fertile_soil");
+// =============================
+// EXTENSION 2 – EARTHWORM
+// =============================
+
+addTick("earthworm", function(p){
+    for(let d of neighbors(p)){
+        if(!d) continue;
+
+        if(d.element==="dirt" && Math.random()<0.005){
+            changePixel(d,"fertile_soil");
+        }
+
+        if(d.element==="fertile_soil" && Math.random()<0.01){
+            changePixel(d,"rich_soil");
         }
     }
 });
 
-// nutrient drain
+// =============================
+// EXTENSION 2 – NUTRIENT DRAIN
+// =============================
+
 addTick("rich_soil", function(p){
-    if(Math.random() < 0.0003){
+    if(Math.random()<0.0003){
         changePixel(p,"fertile_soil");
     }
 });
 
 addTick("fertile_soil", function(p){
-    if(Math.random() < 0.0002){
+    if(Math.random()<0.0002){
         changePixel(p,"dirt");
     }
 });
 
-// earthworm system
-addTick("earthworm", function(p){
+// =============================
+// EXTENSION 2 – FERTILIZER OVERUSE
+// =============================
 
-    let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-
-    for(let d of dirs){
-        let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(!n) continue;
-
-        if(n.element === "dirt" && Math.random() < 0.01){
-            changePixel(n,"fertile_soil");
-        }
-
-        if(n.element === "fertile_soil" && Math.random() < 0.005){
-            changePixel(n,"rich_soil");
-        }
-    }
-});
-
-// fertilizer overuse penalty
 addTick("super_fertile_soil", function(p){
-    if(Math.random() < 0.0005){
-        changePixel(p,"acidic_soil");
+    if(neighbors(p).find(x=>x?.element?.includes("fertilizer"))){
+        if(Math.random()<0.001){
+            changePixel(p,"acidic_soil");
+        }
     }
 });
 
-// =====================================
-// END
-// =====================================
+// =============================
+// COMPOSTER
+// =============================
 
-console.log("SOIL-MOD v3.3 FULL MERGED LOADED");
+addTick("composter", function(p){
+    for(let d of neighbors(p)){
+        if(!d) continue;
+
+        if(["plant","wood","leaf","grass","dead_plant"].includes(d.element)){
+            changePixel(d,"compost");
+        }
+    }
+});
+
+// =============================
+// INTEGRATION
+// =============================
+
+addReaction("dirt","sand",{ elem2:"sandy_soil" });
+
+console.log("SOIL-MOD MASTER LOADED ✔");
