@@ -251,62 +251,80 @@ addTick("moist_soil", function(p){
 });
 
 // =============================
-// MYCORRHIZA - ETERNAL SPREAD SYSTEM
+// MYCORRHIZA - OPTIMIZED NETWORK VERSION
 // =============================
 
 addTick("mycorrhiza", function(p){
 
-    if(!cd(p,"myco_core",80)) return;
+    // 🔒 SLOW DOWN CORE EXECUTION (massive lag fix)
+    if(!cd(p,"myco_core",180)) return;
 
     const dirs = [
         [1,0],[-1,0],[0,1],[0,-1]
     ];
 
-    let emptySpots = [];
-    let soilTargets = [];
+    let empty = [];
+    let soil = [];
 
-    // scan surroundings
-    for(const d of dirs){
+    // scan neighbors (cheap + limited)
+    for(let i = 0; i < 4; i++){
+        const d = dirs[i];
         const n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+
         if(!n){
-            emptySpots.push(d);
+            empty.push(d);
             continue;
         }
 
-        // soil improvement effect
         if(n.element === "rich_soil" || n.element === "fertile_soil"){
-            soilTargets.push(n);
+            soil.push(n);
         }
 
-        // humus conversion chain
-        if(n.element === "humus" && Math.random() < 0.06){
+        // small humus interaction (NERFED)
+        if(n.element === "humus" && Math.random() < 0.03){
             changePixel(n,"rich_soil");
         }
     }
 
-    // 1. SELF SPREAD (creates new mycorrhiza)
-    if(emptySpots.length > 0 && Math.random() < 0.12){
-        const d = emptySpots[Math.floor(Math.random()*emptySpots.length)];
-        createPixel("mycorrhiza", p.x + d[0], p.y + d[1]);
-    }
+    // =============================
+    // 1. CONTROLLED SPREAD (NERFED HARD)
+    // =============================
+    if(empty.length > 0 && Math.random() < 0.03){
+        const d = empty[Math.floor(Math.random()*empty.length)];
 
-    // 2. SOIL UPGRADE EFFECT
-    if(soilTargets.length > 0 && Math.random() < 0.2){
-        const t = soilTargets[Math.floor(Math.random()*soilTargets.length)];
-        changePixel(t,"super_fertile_soil");
-    }
-
-    // 3. MICRO MOVEMENT (optional crawl)
-    if(Math.random() < 0.25){
-        const d = dirs[Math.floor(Math.random()*dirs.length)];
-        const n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-
-        if(n && (n.element === "dirt" || n.element === "humus")){
-            swapPixels(p,n);
+        // spawn limit check (anti-explosion)
+        if(Math.random() < 0.5){
+            createPixel("mycorrhiza", p.x + d[0], p.y + d[1]);
         }
     }
 
-});
+    // =============================
+    // 2. MOVEMENT = TRAIL GROWTH
+    // =============================
+    if(Math.random() < 0.15){
+        const d = dirs[Math.floor(Math.random()*dirs.length)];
+        const target = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
 
+        if(target && (target.element === "dirt" || target.element === "humus")){
+            
+            // swap movement
+            swapPixels(p, target);
+
+            // 🌱 IMPORTANT: leave clone behind
+            if(Math.random() < 0.6){
+                createPixel("mycorrhiza", p.x, p.y);
+            }
+        }
+    }
+
+    // =============================
+    // 3. SOIL UPGRADE (NERFED)
+    // =============================
+    if(soil.length > 0 && Math.random() < 0.08){
+        const t = soil[Math.floor(Math.random()*soil.length)];
+        changePixel(t,"super_fertile_soil");
+    }
+
+});
 
 console.log("Soil Expansion FULL MERGED LOADED");
