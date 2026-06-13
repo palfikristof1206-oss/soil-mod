@@ -251,77 +251,73 @@ addTick("moist_soil", function(p){
 });
 
 // =============================
-// MYCORRHIZA - OPTIMIZED NETWORK VERSION
+// MYCORRHIZA - GROUND ONLY SYSTEM
 // =============================
 
 addTick("mycorrhiza", function(p){
 
-    // 🔒 SLOW DOWN CORE EXECUTION (massive lag fix)
-    if(!cd(p,"myco_core",180)) return;
+    if(!cd(p,"myco_core",160)) return;
 
     const dirs = [
         [1,0],[-1,0],[0,1],[0,-1]
     ];
 
-    let empty = [];
-    let soil = [];
+    let validTargets = [];
+    let soilTargets = [];
 
-    // scan neighbors (cheap + limited)
-    for(let i = 0; i < 4; i++){
-        const d = dirs[i];
-        const n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+    // =============================
+    // SCAN (GROUND ONLY)
+    // =============================
+    for(const d of dirs){
 
+        const x = p.x + d[0];
+        const y = p.y + d[1];
+
+        const n = pixelMap?.[x]?.[y];
+
+        // ❌ NO AIR EXPANSION
         if(!n){
-            empty.push(d);
             continue;
         }
 
+        // soil interaction
         if(n.element === "rich_soil" || n.element === "fertile_soil"){
-            soil.push(n);
+            soilTargets.push(n);
         }
 
-        // small humus interaction (NERFED)
-        if(n.element === "humus" && Math.random() < 0.03){
+        // humus upgrade (weak)
+        if(n.element === "humus" && Math.random() < 0.015){
             changePixel(n,"rich_soil");
         }
-    }
 
-    // =============================
-    // 1. CONTROLLED SPREAD (NERFED HARD)
-    // =============================
-    if(empty.length > 0 && Math.random() < 0.03){
-        const d = empty[Math.floor(Math.random()*empty.length)];
-
-        // spawn limit check (anti-explosion)
-        if(Math.random() < 0.5){
-            createPixel("mycorrhiza", p.x + d[0], p.y + d[1]);
+        // valid ground movement targets only
+        if(n.element === "dirt" || n.element === "humus"){
+            validTargets.push({x,y,ref:n});
         }
     }
 
     // =============================
-    // 2. MOVEMENT = TRAIL GROWTH
+    // 1. CONTROLLED MOVEMENT (GROUND ONLY)
     // =============================
-    if(Math.random() < 0.15){
-        const d = dirs[Math.floor(Math.random()*dirs.length)];
-        const target = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+    if(validTargets.length > 0 && Math.random() < 0.12){
 
-        if(target && (target.element === "dirt" || target.element === "humus")){
-            
-            // swap movement
-            swapPixels(p, target);
+        const t = validTargets[Math.floor(Math.random()*validTargets.length)];
 
-            // 🌱 IMPORTANT: leave clone behind
-            if(Math.random() < 0.6){
-                createPixel("mycorrhiza", p.x, p.y);
-            }
+        swapPixels(p, t.ref);
+
+        // 🌱 trail growth (limited)
+        if(Math.random() < 0.3){
+            createPixel("mycorrhiza", p.x, p.y);
         }
     }
 
     // =============================
-    // 3. SOIL UPGRADE (NERFED)
+    // 2. SOIL UPGRADE (NERFED)
     // =============================
-    if(soil.length > 0 && Math.random() < 0.08){
-        const t = soil[Math.floor(Math.random()*soil.length)];
+    if(soilTargets.length > 0 && Math.random() < 0.06){
+
+        const t = soilTargets[Math.floor(Math.random()*soilTargets.length)];
+
         changePixel(t,"super_fertile_soil");
     }
 
