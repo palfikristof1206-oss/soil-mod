@@ -1,8 +1,8 @@
 // =====================================
-// Soil Expansion v3.0 - EXPANSION PACK (SAFE FIXED)
+// Soil Expansion v3.0 - SAFE EXTENSION PACK (FIXED MERGED)
 // =====================================
 
-console.log("Soil Expansion v3.0 Expansion Pack loading...");
+console.log("Soil Expansion Extension Pack loading (FIXED)...");
 
 // =============================
 // SAFE WRAPPER
@@ -15,194 +15,147 @@ function safe(fn){
 }
 
 // =============================
-// SAFE PIXEL GETTER
+// WEATHER (TICK-BASED, NO SETINTERVAL)
 // =============================
 
-function getBelow(pixel){
-    try{
-        return pixelMap?.[pixel.x]?.[pixel.y+1];
-    } catch(e){
-        return null;
-    }
-}
+let weather = { rain: 0 };
 
-function getAbove(pixel){
-    try{
-        return pixelMap?.[pixel.x]?.[pixel.y-1];
-    } catch(e){
-        return null;
+addTick("dirt", function(p){
+
+    // lightweight pseudo-weather system (SYNCED TO GAME LOOP)
+    if(Math.random() < 0.0002){
+        weather.rain += 0.1;
     }
-}
+
+    if(weather.rain > 1){
+        weather.rain = 0;
+
+        // safe rain spawn
+        if(typeof createPixel === "function"){
+            createPixel("water", p.x, 0);
+        }
+    }
+});
 
 // =============================
-// 🌱 PLANT GROWTH SYSTEM (SAFE ADD-ON)
+// PLANT GROWTH (SAFE EXTEND ONLY)
 // =============================
 
 safe(() => {
 
 if(elements.wheat_seed){
 
-    const oldTick = elements.wheat_seed.tick;
+    const old = elements.wheat_seed.tick;
 
     elements.wheat_seed.tick = function(pixel){
 
         pixel.growth = pixel.growth || 0;
 
-        let below = getBelow(pixel);
+        let below = pixelMap?.[pixel.x]?.[pixel.y+1];
 
         if(below){
-            if(below.element === "moist_soil") pixel.growth += 0.05;
-            else if(below.element === "rich_soil") pixel.growth += 0.03;
-            else if(below.element === "super_fertile_soil") pixel.growth += 0.08;
+            if(below.element === "moist_soil") pixel.growth += 0.03;
+            else if(below.element === "rich_soil") pixel.growth += 0.02;
+            else if(below.element === "super_fertile_soil") pixel.growth += 0.05;
             else if(below.element === "eroded_soil") pixel.growth += 0.005;
         }
 
         if(pixel.growth > 1){
-            if(typeof changePixel === "function"){
-                changePixel(pixel, "plant");
-            }
+            changePixel(pixel, "plant");
         }
 
-        if(oldTick) oldTick(pixel);
+        if(old) old(pixel);
     };
 }
 
 });
 
 // =============================
-// 🪨 COMPACTION SYSTEM (NON-DESTRUCTIVE)
+// COMPACTION SYSTEM (SAFE, NO WRAP OVERWRITE)
 // =============================
 
 function checkCompaction(pixel){
 
     const heavy = ["stone","concrete","iron","steel","lead"];
 
-    let above = getAbove(pixel);
+    let above = pixelMap?.[pixel.x]?.[pixel.y-1];
 
     if(above && heavy.includes(above.element)){
-        if(Math.random() < 0.001){
-            if(typeof changePixel === "function"){
-                changePixel(pixel, "compacted_soil");
-            }
+        if(Math.random() < 0.0005){
+            changePixel(pixel, "compacted_soil");
         }
     }
 }
 
-// attach safely (NO overwrite if exists)
+// attach WITHOUT double wrapping protection
 safe(() => {
 
-if(elements.fertile_soil?.tick){
-    const old = elements.fertile_soil.tick;
+["fertile_soil","rich_soil"].forEach(name => {
 
-    elements.fertile_soil.tick = function(pixel){
-        old(pixel);
-        checkCompaction(pixel);
-    };
-}
+    if(elements[name] && !elements[name]._compaction_added){
 
-if(elements.rich_soil?.tick){
-    const old = elements.rich_soil.tick;
+        addTick(name, function(p){
+            checkCompaction(p);
+        });
 
-    elements.rich_soil.tick = function(pixel){
-        old(pixel);
-        checkCompaction(pixel);
-    };
-}
-
-});
-
-// =============================
-// 🌧️ SIMPLE WEATHER (SAFE SIM)
-// =============================
-
-let weather = { rain: 0, dry: 0 };
-
-safe(() => {
-
-setInterval(() => {
-
-    weather.rain += Math.random() * 0.02;
-    weather.dry += Math.random() * 0.01;
-
-    // rain spawn (SAFE CHECK)
-    if(weather.rain > 1){
-        weather.rain = 0;
-
-        if(typeof create === "function"){
-            try{
-                create("water", Math.floor(Math.random()*50), 0);
-            }catch(e){}
-        }
+        elements[name]._compaction_added = true;
     }
 
-}, 1000);
+});
 
 });
 
 // =============================
-// 🌧️ EROSION ADD-ON (SAFE EXTEND)
+// MICROBIOME EXTENSION (NO DUPLICATION, LOW IMPACT)
 // =============================
 
 safe(() => {
 
-if(elements.moist_soil?.tick){
+if(elements.mycorrhiza && !elements.mycorrhiza._ext_added){
 
-    const old = elements.moist_soil.tick;
+    addTick("mycorrhiza", function(p){
 
-    elements.moist_soil.tick = function(pixel){
-
-        old(pixel);
-
-        if(Math.random() < 0.0003){
-            if(typeof changePixel === "function"){
-                changePixel(pixel, "eroded_soil");
-            }
-        }
-    };
-}
-
-});
-
-// =============================
-// 🦠 MICROBIOME SPREAD (SAFE LOCAL)
-// =============================
-
-safe(() => {
-
-if(elements.mycorrhiza?.tick){
-
-    const old = elements.mycorrhiza.tick;
-
-    elements.mycorrhiza.tick = function(pixel){
-
-        old(pixel);
-
-        let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
 
         for(let d of dirs){
 
-            let p = pixelMap?.[pixel.x+d[0]]?.[pixel.y+d[1]];
-            if(!p) continue;
+            let n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+            if(!n) continue;
 
-            if(p.element === "rich_soil" && Math.random() < 0.01){
-                if(typeof changePixel === "function"){
-                    changePixel(p, "super_fertile_soil");
-                }
-            }
-
-            if(p.element === "compost" && Math.random() < 0.02){
-                if(typeof changePixel === "function"){
-                    changePixel(p, "humus");
-                }
+            // ONLY compost → humus (remove duplicate soil upgrade logic)
+            if(n.element === "compost" && Math.random() < 0.01){
+                changePixel(n, "humus");
             }
         }
-    };
+
+    });
+
+    elements.mycorrhiza._ext_added = true;
 }
 
 });
 
 // =============================
-// END PACK
+// EROSION EXTENSION (SAFE)
 // =============================
 
-console.log("Soil Expansion v3.0 Expansion Pack LOADED (SAFE)");
+safe(() => {
+
+if(elements.moist_soil && !elements.moist_soil._erosion_ext){
+
+    addTick("moist_soil", function(p){
+        if(Math.random() < 0.0002){
+            changePixel(p, "eroded_soil");
+        }
+    });
+
+    elements.moist_soil._erosion_ext = true;
+}
+
+});
+
+// =============================
+// END
+// =============================
+
+console.log("Soil Expansion Extension Pack LOADED (FIXED & STABLE)");
