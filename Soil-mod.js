@@ -251,57 +251,62 @@ addTick("moist_soil", function(p){
 });
 
 // =============================
-// MYCORRHIZA HYBRID MOVEMENT
+// MYCORRHIZA - ETERNAL SPREAD SYSTEM
 // =============================
 
-safeElement("mycorrhiza", {
-    color:"#e8d8b0",
-    behavior:behaviors.POWDER,
-    category:"life",
-    state:"solid"
-});
-
-// hybrid movement + spread
 addTick("mycorrhiza", function(p){
 
-    if(!cd(p,"myco_move",120)) return;
+    if(!cd(p,"myco_core",80)) return;
 
     const dirs = [
-        [1,0],[-1,0],[0,1],[0,-1],
-        [1,1],[-1,1],[1,-1],[-1,-1]
+        [1,0],[-1,0],[0,1],[0,-1]
     ];
 
-    // 1. SOIL INTERACTION (fertility boost)
-    let boostTargets = [];
+    let emptySpots = [];
+    let soilTargets = [];
 
+    // scan surroundings
     for(const d of dirs){
         const n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
-        if(!n) continue;
-
-        if(n.element === "rich_soil"){
-            boostTargets.push(n);
+        if(!n){
+            emptySpots.push(d);
+            continue;
         }
 
-        // spread into humus network
-        if(n.element === "humus" && Math.random() < 0.08){
+        // soil improvement effect
+        if(n.element === "rich_soil" || n.element === "fertile_soil"){
+            soilTargets.push(n);
+        }
+
+        // humus conversion chain
+        if(n.element === "humus" && Math.random() < 0.06){
             changePixel(n,"rich_soil");
         }
     }
 
-    // 2. RANDOM MICRO-MOVEMENT (hybrid crawl)
-    if(Math.random() < 0.35){
-        const d = dirs[Math.floor(Math.random()*dirs.length)];
-        const target = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+    // 1. SELF SPREAD (creates new mycorrhiza)
+    if(emptySpots.length > 0 && Math.random() < 0.12){
+        const d = emptySpots[Math.floor(Math.random()*emptySpots.length)];
+        createPixel("mycorrhiza", p.x + d[0], p.y + d[1]);
+    }
 
-        if(target && (target.element === "dirt" || target.element === "humus")){
-            swapPixels(p, target); // gentle biological crawling
+    // 2. SOIL UPGRADE EFFECT
+    if(soilTargets.length > 0 && Math.random() < 0.2){
+        const t = soilTargets[Math.floor(Math.random()*soilTargets.length)];
+        changePixel(t,"super_fertile_soil");
+    }
+
+    // 3. MICRO MOVEMENT (optional crawl)
+    if(Math.random() < 0.25){
+        const d = dirs[Math.floor(Math.random()*dirs.length)];
+        const n = pixelMap?.[p.x+d[0]]?.[p.y+d[1]];
+
+        if(n && (n.element === "dirt" || n.element === "humus")){
+            swapPixels(p,n);
         }
     }
 
-    // 3. FERTILITY BURST (cluster effect)
-    if(boostTargets.length >= 2 && Math.random() < 0.15){
-        changePixel(p,"super_fertile_soil");
-    }
 });
+
 
 console.log("Soil Expansion FULL MERGED LOADED");
