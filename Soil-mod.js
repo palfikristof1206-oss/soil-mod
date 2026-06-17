@@ -1,6 +1,6 @@
 // =====================================================================
 // 🌱 SOIL-MOD v5.1 – COMPLETE ECOSYSTEM SIMULATION
-// Egy fájlba integrált teljes verzió – Javított mycorrhiza + Mixing
+// Egy fájlba integrált teljes verzió – Javított mycorrhiza + Mixing + Új Biome-ok
 // =====================================================================
 
 console.log("🌱 SOIL-MOD v5.1 LOADING...");
@@ -182,38 +182,32 @@ console.log("✅ [3/14] Organic Materials + NPK loaded");
 // 4. LEBOMLÁSI LÁNC
 // =====================================================================
 
-// leaf → leaf_litter
 addTick("leaf", function (p) {
     if (!cd(p, "decay_leaf", 5000)) return;
     if (chance(2)) changePixel(p, "leaf_litter");
 });
 
-// leaf_litter → compost
 addTick("leaf_litter", function (p) {
     if (!cd(p, "decay_litter", 6000)) return;
     let wet = neighbors(p).find(x => x.element === "water");
     if (chance(wet ? 8 : 3)) changePixel(p, "compost");
 });
 
-// compost → humus
 addTick("compost", function (p) {
     if (!cd(p, "decay_compost", 8000)) return;
     if (chance(2)) changePixel(p, "humus");
 });
 
-// manure → humus (gyorsabban)
 addTick("manure", function (p) {
     if (!cd(p, "decay_manure", 4000)) return;
     if (chance(5)) changePixel(p, "humus");
 });
 
-// peat → humus (lassan)
 addTick("peat", function (p) {
     if (!cd(p, "decay_peat", 15000)) return;
     if (chance(1)) changePixel(p, "humus");
 });
 
-// humus + talaj → forest_soil
 addTick("humus", function (p) {
     if (!cd(p, "humus_soil", 10000)) return;
     neighbors(p).forEach(n => {
@@ -223,7 +217,6 @@ addTick("humus", function (p) {
     });
 });
 
-// Tápanyagfogyás
 addTick("super_fertile_soil", function (p) {
     if (!cd(p, "nutrient_drain", 30000)) return;
     let hasNutrient = neighbors(p).find(x =>
@@ -250,7 +243,6 @@ console.log("✅ [4/14] Decomposition Chain loaded");
 // 5. NÖVÉNYEK
 // =====================================================================
 
-// ---- BÚZA ----
 safeElement("wheat_seed", { color: "#d9c27a", behavior: behaviors.POWDER, category: "plants" });
 safeElement("wheat_sprout", { color: "#7ab648", behavior: behaviors.WALL, category: "plants" });
 safeElement("wheat_stem", { color: "#5a8a2a", behavior: behaviors.WALL, category: "plants" });
@@ -271,19 +263,9 @@ addTick("wheat_seed", function (p) {
     if (p.g > 1) changePixel(p, "wheat_sprout");
 });
 
-addTick("wheat_sprout", function (p) {
-    p.g = p.g || 0;
-    p.g += 0.03;
-    if (p.g > 1.5) changePixel(p, "wheat_stem");
-});
+addTick("wheat_sprout", function (p) { p.g = p.g || 0; p.g += 0.03; if (p.g > 1.5) changePixel(p, "wheat_stem"); });
+addTick("wheat_stem", function (p) { p.g = p.g || 0; p.g += 0.02; if (p.g > 2) changePixel(p, "wheat_head"); });
 
-addTick("wheat_stem", function (p) {
-    p.g = p.g || 0;
-    p.g += 0.02;
-    if (p.g > 2) changePixel(p, "wheat_head");
-});
-
-// ---- PARADICSOM ----
 safeElement("tomato_seed", { color: "#e8d8a0", behavior: behaviors.POWDER, category: "plants" });
 safeElement("tomato_root", { color: "#8b6b3a", behavior: behaviors.WALL, category: "plants" });
 safeElement("tomato_stem", { color: "#4a7a2a", behavior: behaviors.WALL, category: "plants" });
@@ -305,7 +287,6 @@ addTick("tomato_stem", function(p) { p.g = p.g || 0; p.g += 0.02; if (p.g > 1.8)
 addTick("tomato_leaf", function(p) { p.g = p.g || 0; p.g += 0.03; if (p.g > 2.2) changePixel(p, "tomato_flower"); });
 addTick("tomato_flower", function(p) { p.g = p.g || 0; p.g += 0.04; if (p.g > 2.8) changePixel(p, "tomato_fruit"); });
 
-// ---- BURGONYA ----
 safeElement("potato_seed", { color: "#c8b080", behavior: behaviors.POWDER, category: "plants" });
 safeElement("potato_root", { color: "#6b4b2a", behavior: behaviors.WALL, category: "plants" });
 safeElement("potato_plant", { color: "#3a6a1a", behavior: behaviors.WALL, category: "plants" });
@@ -323,7 +304,6 @@ addTick("potato_seed", function (p) {
 addTick("potato_root", function(p) { p.g = p.g || 0; p.g += 0.03; if (p.g > 1.3) changePixel(p, "potato_plant"); });
 addTick("potato_plant", function(p) { p.g = p.g || 0; p.g += 0.02; if (p.g > 2) changePixel(p, "potato_tuber"); });
 
-// ---- FA ----
 safeElement("tree_seed", { color: "#8b5a2b", behavior: behaviors.POWDER, category: "plants" });
 safeElement("tree_sapling", { color: "#5a8a3a", behavior: behaviors.WALL, category: "plants" });
 safeElement("tree_trunk", { color: "#6b4a2b", behavior: behaviors.WALL, category: "plants" });
@@ -361,7 +341,6 @@ console.log("✅ [5/14] Plants loaded");
 // 6. BIOLÓGIA (EARTHWORM + MYCORRHIZA)
 // =====================================================================
 
-// ---- GILISZTA ----
 safeElement("earthworm", { color: "#b08c6a", behavior: behaviors.POWDER, category: "biology" });
 safeElement("worm_tunnel", { color: "#4a3a2a", behavior: behaviors.POWDER, category: "biology" });
 
@@ -371,11 +350,9 @@ addTick("earthworm", function (p) {
     let d = dirs[randInt(0, 3)];
     let t = pixelMap?.[p.x + d[0]]?.[p.y + d[1]];
     if (!t) return;
-
     if (t.element === "dirt") changePixel(t, "fertile_soil");
     else if (t.element === "fertile_soil") changePixel(t, "rich_soil");
     else if (t.element === "compost" && chance(30)) changePixel(t, "humus");
-
     let movable = ["empty", "dirt", "fertile_soil", "rich_soil", "compost", "humus", "worm_tunnel",
                    "sandy_soil", "loam", "forest_soil", "depleted_soil"];
     if (movable.includes(t.element)) {
@@ -383,7 +360,6 @@ addTick("earthworm", function (p) {
         t.element = "earthworm";
         t.color = elements["earthworm"].color;
     }
-
     if (chance(0.1) && neighbors(p).find(x => x.element === "earthworm")) {
         let emptySpot = neighbors(p).find(x => movable.includes(x.element) && x.element !== "earthworm");
         if (emptySpot) changePixel(emptySpot, "earthworm");
@@ -402,8 +378,6 @@ safeElement("mycorrhiza", { color: "#e8d8b0", behavior: behaviors.POWDER, catego
 
 addTick("mycorrhiza", function (p) {
     if (!cd(p, "myco_grow", 2000)) return;
-
-    // Minden talajtípus, amiben nőhet
     let allSoils = [
         "dirt", "sand", "mud", "sandy_soil", "fertile_soil", "rich_soil",
         "super_fertile_soil", "loam", "sandy_loam", "silt_loam", "clay_soil",
@@ -414,33 +388,17 @@ addTick("mycorrhiza", function (p) {
         "alkaline_soil", "moist_soil", "compost", "humus", "manure", "peat",
         "leaf_litter", "worm_tunnel"
     ];
-
-    // Keresünk talajt/üres helyet a szomszédban
     let targets = neighbors(p).filter(n =>
         allSoils.includes(n.element) || n.element === "empty" || n.element === "air"
     );
-
     if (targets.length > 0 && chance(30)) {
-        // Véletlen célpont
         let target = targets[randInt(0, targets.length - 1)];
-
-        // HA a célpont talaj → a mycorrhiza "belenő" és a talajt arrébb tolja
         if (allSoils.includes(target.element)) {
-            // A talajt áttoljuk a mycorrhiza régi helyére (swap)
             swapPixel(p, target);
-            // Most p (régi célpont) mycorrhiza lett, target (régi mycorrhiza helye) pedig a talaj
-        }
-        // HA a célpont üres → a mycorrhiza simán nő oda, régi helye üres marad
-        else if (target.element === "empty" || target.element === "air") {
+        } else if (target.element === "empty" || target.element === "air") {
             changePixel(target, "mycorrhiza");
-            // A régi hely NEM változik meg (üres marad? Vagy maradjon mycorrhiza?)
-            // Ha azt szeretnéd, hogy a régi helyen is mycorrhiza maradjon, akkor ne csinálj semmit
-            // Ha azt, hogy eltűnjön: changePixel(p, "empty");
-            // Alap: marad mycorrhiza (sűrűsödik)
         }
     }
-
-    // Növekedés: új mycorrhiza létrehozása üres/talaj szomszédokba (lassú terjedés)
     let spreadTargets = neighbors(p).filter(n =>
         allSoils.includes(n.element) || n.element === "empty" || n.element === "air"
     );
@@ -449,12 +407,9 @@ addTick("mycorrhiza", function (p) {
         if (target.element === "empty" || target.element === "air") {
             changePixel(target, "mycorrhiza");
         } else if (allSoils.includes(target.element)) {
-            // Belenő a talajba, a talajt a régi helyére teszi
             swapPixel(p, target);
         }
     }
-
-    // Növények növekedésének gyorsítása (mycorrhiza szimbiózis)
     neighbors(p).forEach(n => {
         if (n.element?.includes("seed") || n.element?.includes("sprout") ||
             n.element?.includes("root") || n.element?.includes("stem") ||
@@ -473,7 +428,6 @@ console.log("✅ [6/14] Biology (Earthworm + Mycorrhiza) loaded");
 addReaction("dirt", "radiation", { elem1: "irradiated_soil" });
 addReaction("fertile_soil", "radiation", { elem1: "irradiated_soil" });
 addReaction("rich_soil", "radiation", { elem1: "irradiated_soil" });
-
 safeElement("mutant_plant", { color: "#6a1b9a", behavior: behaviors.WALL, category: "mutated" });
 
 addTick("irradiated_soil", function (p) {
@@ -502,19 +456,10 @@ console.log("✅ [7/14] Mutations loaded");
 // =====================================================================
 
 ["humus", "compost", "manure", "leaf_litter", "peat"].forEach(name => {
-    if (elements[name]) {
-        elements[name].tempHigh = 200;
-        elements[name].stateHigh = "fire";
-        elements[name].burn = 80;
-    }
+    if (elements[name]) { elements[name].tempHigh = 200; elements[name].stateHigh = "fire"; elements[name].burn = 80; }
 });
-
-["dirt", "sandy_soil", "fertile_soil", "rich_soil", "super_fertile_soil",
- "forest_soil", "loam", "clay_soil"].forEach(name => {
-    if (elements[name]) {
-        elements[name].tempHigh = 1200;
-        elements[name].stateHigh = "molten_silicate";
-    }
+["dirt", "sandy_soil", "fertile_soil", "rich_soil", "super_fertile_soil", "forest_soil", "loam", "clay_soil"].forEach(name => {
+    if (elements[name]) { elements[name].tempHigh = 1200; elements[name].stateHigh = "molten_silicate"; }
 });
 
 addReaction("humus", "fire", { elem1: "charcoal", elem2: "ash" });
@@ -524,9 +469,7 @@ addReaction("leaf_litter", "fire", { elem1: "charcoal", elem2: "ash" });
 addReaction("charcoal", "fire", { elem1: "ash" });
 
 ["super_fertile_soil", "fertile_soil", "rich_soil", "forest_soil", "humus"].forEach(name => {
-    addTick(name, function (p) {
-        if (p.temp > 500 && chance(10)) changePixel(p, "burnt_soil");
-    });
+    addTick(name, function (p) { if (p.temp > 500 && chance(10)) changePixel(p, "burnt_soil"); });
 });
 
 console.log("✅ [8/14] Temperature System loaded");
@@ -538,22 +481,18 @@ console.log("✅ [8/14] Temperature System loaded");
 addTick("acidic_soil", function (p) {
     if (neighbors(p).find(x => x.element === "lime") && chance(10)) changePixel(p, "neutral_soil");
 });
-
 addTick("alkaline_soil", function (p) {
     if (neighbors(p).find(x => x.element === "fertilizer_n") && chance(5)) changePixel(p, "neutral_soil");
 });
-
 addTick("super_fertile_soil", function (p) {
     if (!cd(p, "ph_check", 10000)) return;
     let fertCount = neighbors(p).filter(x => x.element?.includes("fertilizer")).length;
     if (fertCount >= 2 && chance(fertCount * 2)) changePixel(p, "acidic_soil");
 });
-
 addTick("wheat_seed", function (p) {
     let below = pixelMap?.[p.x]?.[p.y + 1];
     if (below && below.element === "acidic_soil") p.g = (p.g || 0) * 0.5;
 });
-
 addTick("tomato_seed", function (p) {
     let below = pixelMap?.[p.x]?.[p.y + 1];
     if (below && below.element === "alkaline_soil") p.g = (p.g || 0) * 0.6;
@@ -569,6 +508,7 @@ safeElement("rain_cloud", { color: "#8899aa", behavior: behaviors.GAS, category:
 safeElement("storm_cloud", { color: "#445566", behavior: behaviors.GAS, category: "weather" });
 safeElement("acid_rain_cloud", { color: "#88aa66", behavior: behaviors.GAS, category: "weather" });
 safeElement("snow_cloud", { color: "#ccddff", behavior: behaviors.GAS, category: "weather" });
+safeElement("moist_soil", { color: "#4f3727", behavior: behaviors.POWDER, category: "soil_special" });
 
 addTick("rain_cloud", function (p) {
     if (!cd(p, "rain", 500)) return;
@@ -577,7 +517,6 @@ addTick("rain_cloud", function (p) {
     if (below && below.element?.includes("soil") && chance(30)) changePixel(below, "moist_soil");
     if (chance(0.1)) changePixel(p, "steam");
 });
-
 addTick("storm_cloud", function (p) {
     if (!cd(p, "storm", 300)) return;
     let below = pixelMap?.[p.x]?.[p.y + 1];
@@ -585,26 +524,19 @@ addTick("storm_cloud", function (p) {
     if (chance(0.5) && below) changePixel(below, "fire");
     if (chance(0.05)) changePixel(p, "rain_cloud");
 });
-
 addTick("acid_rain_cloud", function (p) {
     if (!cd(p, "acid_rain", 500)) return;
     let below = pixelMap?.[p.x]?.[p.y + 1];
     if (below && (below.element === "empty" || below.element === "air")) changePixel(below, "acid");
-    if (below && ["fertile_soil", "rich_soil", "super_fertile_soil", "forest_soil"].includes(below.element) && chance(20)) {
-        changePixel(below, "acidic_soil");
-    }
+    if (below && ["fertile_soil", "rich_soil", "super_fertile_soil", "forest_soil"].includes(below.element) && chance(20)) changePixel(below, "acidic_soil");
     if (chance(0.05)) changePixel(p, "rain_cloud");
 });
-
 addTick("snow_cloud", function (p) {
     if (!cd(p, "snow", 500)) return;
     let below = pixelMap?.[p.x]?.[p.y + 1];
     if (below && (below.element === "empty" || below.element === "air")) changePixel(below, "snow");
     if (chance(0.05)) changePixel(p, "steam");
 });
-
-safeElement("moist_soil", { color: "#4f3727", behavior: behaviors.POWDER, category: "soil_special" });
-
 addTick("moist_soil", function (p) {
     if (!cd(p, "dry_out", 15000)) return;
     let above = pixelMap?.[p.x]?.[p.y - 1];
@@ -619,7 +551,6 @@ addTick("moist_soil", function (p) {
 
 window._soilSeason = window._soilSeason || "spring";
 window._soilSeasonTimer = window._soilSeasonTimer || 0;
-
 function updateSeason() {
     window._soilSeasonTimer++;
     if (window._soilSeasonTimer > 50000) {
@@ -637,23 +568,14 @@ console.log("✅ [10/14] Weather System loaded");
 // 11. ERÓZIÓ
 // =====================================================================
 
-addTick("moist_soil", function (p) {
-    if (!cd(p, "erosion", 20000)) return;
-    if (chance(0.5)) changePixel(p, "eroded_soil");
-});
-
+addTick("moist_soil", function (p) { if (!cd(p, "erosion", 20000)) return; if (chance(0.5)) changePixel(p, "eroded_soil"); });
 ["dirt", "fertile_soil", "rich_soil", "super_fertile_soil", "sandy_soil"].forEach(name => {
     addTick(name, function (p) {
         let waterNeighbor = neighbors(p).find(x => x.element === "water");
         if (waterNeighbor && chance(0.3)) changePixel(p, "eroded_soil");
     });
 });
-
-addTick("eroded_soil", function (p) {
-    if (!cd(p, "erode_further", 30000)) return;
-    if (chance(2)) changePixel(p, "depleted_soil");
-});
-
+addTick("eroded_soil", function (p) { if (!cd(p, "erode_further", 30000)) return; if (chance(2)) changePixel(p, "depleted_soil"); });
 ["stone", "iron", "steel", "concrete"].forEach(heavy => {
     if (elements[heavy]) {
         addReaction("fertile_soil", heavy, { elem1: "compacted_soil" });
@@ -661,12 +583,7 @@ addTick("eroded_soil", function (p) {
         addReaction("super_fertile_soil", heavy, { elem1: "compacted_soil" });
     }
 });
-
-addTick("compacted_soil", function (p) {
-    if (!cd(p, "crack", 40000)) return;
-    if (chance(1)) changePixel(p, "cracked_soil");
-});
-
+addTick("compacted_soil", function (p) { if (!cd(p, "crack", 40000)) return; if (chance(1)) changePixel(p, "cracked_soil"); });
 ["dirt", "fertile_soil", "rich_soil", "clay_soil"].forEach(name => {
     addTick(name, function (p) {
         let waterCount = neighbors(p).filter(x => x.element === "water").length;
@@ -690,25 +607,18 @@ addTick("composter", function (p) {
     neighbors(p).forEach(n => {
         if (["plant", "wood", "leaf", "grass", "dead_plant", "wheat_sprout", "wheat_stem",
              "wheat_head", "tomato_leaf", "tomato_stem", "potato_plant", "tree_leaves",
-             "leaf_litter", "tree_sapling"].includes(n.element)) {
-            changePixel(n, "compost");
-        }
+             "leaf_litter", "tree_sapling"].includes(n.element)) changePixel(n, "compost");
     });
 });
-
 addTick("irrigation_system", function (p) {
     if (!cd(p, "irrigate", 2000)) return;
     neighbors(p).forEach(n => {
-        if (n.element?.includes("soil") && n.element !== "waterlogged_soil" && n.element !== "moist_soil") {
-            changePixel(n, "moist_soil");
-        }
-        if (["wheat_seed", "wheat_sprout", "tomato_seed", "tomato_root",
-             "potato_seed", "potato_root", "tree_seed", "tree_sapling"].includes(n.element)) {
+        if (n.element?.includes("soil") && n.element !== "waterlogged_soil" && n.element !== "moist_soil") changePixel(n, "moist_soil");
+        if (["wheat_seed", "wheat_sprout", "tomato_seed", "tomato_root", "potato_seed", "potato_root", "tree_seed", "tree_sapling"].includes(n.element)) {
             if (n.g !== undefined) n.g += 0.05;
         }
     });
 });
-
 addTick("tiller", function (p) {
     if (!cd(p, "till", 3000)) return;
     neighbors8(p).forEach(n => {
@@ -717,13 +627,10 @@ addTick("tiller", function (p) {
         else if (n.element === "cracked_soil") changePixel(n, "fertile_soil");
     });
 });
-
 addTick("greenhouse", function (p) {
     if (!cd(p, "greenhouse_effect", 5000)) return;
     neighbors(p).forEach(n => {
-        if (n.element?.includes("seed") || n.element?.includes("sprout") ||
-            n.element?.includes("root") || n.element?.includes("stem") ||
-            n.element?.includes("sapling")) {
+        if (n.element?.includes("seed") || n.element?.includes("sprout") || n.element?.includes("root") || n.element?.includes("stem") || n.element?.includes("sapling")) {
             if (n.g !== undefined) n.g += 0.1;
         }
         if (n.element?.includes("soil") && n.temp < 30) n.temp += 0.5;
@@ -733,304 +640,368 @@ addTick("greenhouse", function (p) {
 console.log("✅ [12/14] Machines loaded");
 
 // =====================================================================
-// 13. BIOME-OK (AKTÍV NÖVESZTÉS + TERJEDÉS)
+// 13. BIOME-OK (BIZTONSÁGOS RENDERELÉS + 10MP IDÉZÉS + RANDOM EGYENETLEN)
 // =====================================================================
 
+// Biome magok – elhelyezve automatikusan növesztik a biome-ot
 safeElement("forest_biome_seed", { color: "#1a4a0a", behavior: behaviors.WALL, category: "biomes" });
 safeElement("swamp_biome_seed", { color: "#2a3a1a", behavior: behaviors.WALL, category: "biomes" });
 safeElement("plains_biome_seed", { color: "#8aaa4a", behavior: behaviors.WALL, category: "biomes" });
 safeElement("desert_biome_seed", { color: "#d4c89a", behavior: behaviors.WALL, category: "biomes" });
 safeElement("volcanic_biome_seed", { color: "#4a1a0a", behavior: behaviors.WALL, category: "biomes" });
 
-// Forest biome
+// ============================
+// FOREST BIOME – Véletlenszerű, egyenetlen erdő
+// ============================
 addTick("forest_biome_seed", function (p) {
-    if (!cd(p, "forest_grow", 3000)) return;
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (p.element !== "forest_biome_seed") return;
+    p._biomeAge = p._biomeAge || 0;
+    p._biomeAge++;
+    if (!cd(p, "forest_main", 3000)) return;
+    let isActive = p._biomeAge > 300;
+    let growthChance = isActive ? 25 : 8;
+    let spreadChance = isActive ? 5 : 1;
     neighbors8(p).forEach(n => {
-        if (["dirt", "sand", "sandy_soil", "fertile_soil", "rich_soil"].includes(n.element) && chance(20)) changePixel(n, "forest_soil");
-        if (["forest_soil", "rich_soil", "super_fertile_soil"].includes(n.element) && chance(2)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "tree_seed");
-        }
-        if (n.element === "forest_soil" && chance(5)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "leaf_litter");
-        }
-        if (n.element === "forest_soil" && chance(8)) changePixel(n, "mycorrhiza");
-        if (n.element === "forest_soil" && chance(2)) changePixel(n, "earthworm");
-    });
-    let edgeNeighbors = neighbors(p).filter(n => ["dirt", "sand", "grass", "empty", "air"].includes(n.element));
-    if (edgeNeighbors.length > 0 && chance(15)) {
-        let target = edgeNeighbors[randInt(0, edgeNeighbors.length - 1)];
-        if (target.element === "empty" || target.element === "air") changePixel(target, "tree_seed");
-    }
-    let farNeighbors = neighbors8(p).filter(n => ["dirt", "sandy_soil", "fertile_soil", "empty"].includes(n.element));
-    if (farNeighbors.length > 0 && chance(3)) {
-        let target = farNeighbors[randInt(0, farNeighbors.length - 1)];
-        if (target.element !== "forest_biome_seed") changePixel(target, "forest_biome_seed");
-    }
-    if (chance(0.5)) {
-        let above = pixelMap?.[p.x]?.[p.y - 1];
-        if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "steam");
-    }
-});
-
-// Swamp biome
-addTick("swamp_biome_seed", function (p) {
-    if (!cd(p, "swamp_grow", 3000)) return;
-    neighbors8(p).forEach(n => {
-        if (["dirt", "sand", "fertile_soil", "rich_soil"].includes(n.element) && chance(20)) changePixel(n, "peaty_soil");
-        if (n.element === "empty" && chance(5)) changePixel(n, "water");
-        if (n.element === "water" && chance(10)) changePixel(n, "mud");
-        if (n.element === "peaty_soil" && chance(3)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "tree_seed");
-        }
-        if (n.element === "mud" && chance(8)) changePixel(n, "peat");
-    });
-    let edgeNeighbors = neighbors(p).filter(n => ["dirt", "sand", "empty", "grass"].includes(n.element));
-    if (edgeNeighbors.length > 0 && chance(10)) {
-        let target = edgeNeighbors[randInt(0, edgeNeighbors.length - 1)];
-        if (target.element !== "swamp_biome_seed" && target.element !== "water") changePixel(target, "swamp_biome_seed");
-    }
-    if (chance(2)) {
-        let below = pixelMap?.[p.x]?.[p.y + 1];
-        if (below && ["dirt", "peaty_soil", "mud"].includes(below.element)) changePixel(below, "waterlogged_soil");
-    }
-});
-
-// Plains biome
-addTick("plains_biome_seed", function (p) {
-    if (!cd(p, "plains_grow", 3000)) return;
-    neighbors8(p).forEach(n => {
-        if (["dirt", "sand", "sandy_soil"].includes(n.element) && chance(25)) changePixel(n, "loam");
-        if (["loam", "fertile_soil", "rich_soil"].includes(n.element) && chance(3)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) {
-                let plantType = randInt(1, 3);
-                if (plantType === 1) changePixel(above, "wheat_seed");
-                if (plantType === 2) changePixel(above, "tomato_seed");
-                if (plantType === 3) changePixel(above, "potato_seed");
+        if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+        if (["dirt", "sand", "sandy_soil", "fertile_soil", "rich_soil"].includes(n.element)) {
+            if (chance(growthChance * 0.8)) {
+                let r = Math.random();
+                if (r < 0.4) changePixel(n, "forest_soil");
+                else if (r < 0.7) changePixel(n, "rich_soil");
+                else if (r < 0.9) changePixel(n, "fertile_soil");
+                else changePixel(n, "loam");
             }
         }
-        if (n.element === "loam" && chance(10)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "wheat_seed");
-        }
-        if (n.element === "loam" && chance(3)) changePixel(n, "earthworm");
     });
-    let edgeNeighbors = neighbors8(p).filter(n => ["dirt", "sand", "sandy_soil", "fertile_soil", "empty"].includes(n.element));
-    if (edgeNeighbors.length > 0 && chance(12)) {
-        let target = edgeNeighbors[randInt(0, edgeNeighbors.length - 1)];
-        if (target.element !== "plains_biome_seed") changePixel(target, "plains_biome_seed");
+    if (isActive) {
+        neighbors8(p).forEach(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+            if (n.element === "empty" || n.element === "air") {
+                if (!chance(growthChance * 0.6)) return;
+                let r = Math.random();
+                if (r < 0.15) changePixel(n, "tree_seed");
+                else if (r < 0.30) { let below = pixelMap?.[n.x]?.[n.y + 1]; if (below && below.element?.includes("soil")) changePixel(n, "leaf_litter"); }
+                else if (r < 0.35) changePixel(n, "mycorrhiza");
+                else if (r < 0.38) changePixel(n, "wheat_seed");
+            }
+            if (n.element === "forest_soil" || n.element === "rich_soil") {
+                if (chance(2)) changePixel(n, "mycorrhiza");
+                if (chance(1)) changePixel(n, "earthworm");
+            }
+        });
+    }
+    if (isActive && chance(spreadChance)) {
+        let candidates = neighbors8(p).filter(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return false;
+            return ["dirt", "sand", "sandy_soil", "fertile_soil", "rich_soil", "empty", "air", "grass"].includes(n.element) && n.element !== "forest_biome_seed";
+        });
+        if (candidates.length > 0 && chance(40)) {
+            let target = candidates[randInt(0, candidates.length - 1)];
+            if (target.element === "empty" || target.element === "air") { let r = Math.random(); if (r < 0.5) changePixel(target, "tree_seed"); else if (r < 0.8) changePixel(target, "leaf"); }
+            else changePixel(target, "forest_biome_seed");
+        }
+    }
+    if (chance(0.3)) { let above = pixelMap?.[p.x]?.[p.y - 1]; if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "steam"); }
+});
+
+// ============================
+// SWAMP BIOME – Véletlenszerű, egyenetlen mocsár
+// ============================
+addTick("swamp_biome_seed", function (p) {
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (p.element !== "swamp_biome_seed") return;
+    p._biomeAge = p._biomeAge || 0;
+    p._biomeAge++;
+    if (!cd(p, "swamp_main", 3000)) return;
+    let isActive = p._biomeAge > 300;
+    let growthChance = isActive ? 20 : 6;
+    let spreadChance = isActive ? 4 : 1;
+    neighbors8(p).forEach(n => {
+        if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+        if (["dirt", "sand", "fertile_soil", "rich_soil"].includes(n.element) && chance(growthChance * 0.7)) {
+            let r = Math.random();
+            if (r < 0.5) changePixel(n, "peaty_soil");
+            else if (r < 0.8) changePixel(n, "mud");
+            else changePixel(n, "waterlogged_soil");
+        }
+    });
+    if (isActive) {
+        neighbors8(p).forEach(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+            if (n.element === "empty" || n.element === "air") {
+                if (!chance(growthChance * 0.5)) return;
+                let r = Math.random();
+                if (r < 0.4) changePixel(n, "water");
+                else if (r < 0.5) changePixel(n, "tree_seed");
+                else if (r < 0.55) changePixel(n, "peat");
+            }
+            if (n.element === "water" && chance(5)) changePixel(n, "mud");
+        });
+    }
+    if (isActive && chance(spreadChance)) {
+        let candidates = neighbors8(p).filter(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return false;
+            return ["dirt", "sand", "fertile_soil", "empty", "air", "grass"].includes(n.element) && n.element !== "swamp_biome_seed";
+        });
+        if (candidates.length > 0 && chance(35)) {
+            let target = candidates[randInt(0, candidates.length - 1)];
+            if (target.element === "empty" || target.element === "air") { let r = Math.random(); if (r < 0.6) changePixel(target, "water"); else changePixel(target, "swamp_biome_seed"); }
+            else changePixel(target, "swamp_biome_seed");
+        }
     }
 });
 
-// Desert biome
+// ============================
+// PLAINS BIOME – Véletlenszerű, egyenetlen síkság
+// ============================
+addTick("plains_biome_seed", function (p) {
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (p.element !== "plains_biome_seed") return;
+    p._biomeAge = p._biomeAge || 0;
+    p._biomeAge++;
+    if (!cd(p, "plains_main", 3000)) return;
+    let isActive = p._biomeAge > 300;
+    let growthChance = isActive ? 22 : 7;
+    let spreadChance = isActive ? 4 : 1;
+    neighbors8(p).forEach(n => {
+        if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+        if (["dirt", "sand", "sandy_soil"].includes(n.element) && chance(growthChance * 0.8)) {
+            let r = Math.random();
+            if (r < 0.6) changePixel(n, "loam");
+            else if (r < 0.85) changePixel(n, "fertile_soil");
+            else changePixel(n, "rich_soil");
+        }
+    });
+    if (isActive) {
+        neighbors8(p).forEach(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+            if (n.element === "empty" || n.element === "air") {
+                if (!chance(growthChance * 0.4)) return;
+                let r = Math.random();
+                if (r < 0.3) changePixel(n, "wheat_seed");
+                else if (r < 0.5) changePixel(n, "tomato_seed");
+                else if (r < 0.65) changePixel(n, "potato_seed");
+                else if (r < 0.75) changePixel(n, "grass");
+            }
+            if (n.element === "loam" && chance(2)) changePixel(n, "earthworm");
+        });
+    }
+    if (isActive && chance(spreadChance)) {
+        let candidates = neighbors8(p).filter(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return false;
+            return ["dirt", "sand", "sandy_soil", "fertile_soil", "empty", "air"].includes(n.element) && n.element !== "plains_biome_seed";
+        });
+        if (candidates.length > 0 && chance(40)) {
+            let target = candidates[randInt(0, candidates.length - 1)];
+            if (target.element === "empty" || target.element === "air") { let r = Math.random(); if (r < 0.7) changePixel(target, "wheat_seed"); else changePixel(target, "plains_biome_seed"); }
+            else changePixel(target, "plains_biome_seed");
+        }
+    }
+});
+
+// ============================
+// DESERT BIOME – Véletlenszerű, egyenetlen sivatag
+// ============================
 addTick("desert_biome_seed", function (p) {
-    if (!cd(p, "desert_grow", 3000)) return;
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (p.element !== "desert_biome_seed") return;
+    p._biomeAge = p._biomeAge || 0;
+    p._biomeAge++;
+    if (!cd(p, "desert_main", 3000)) return;
+    let isActive = p._biomeAge > 300;
+    let growthChance = isActive ? 25 : 8;
+    let spreadChance = isActive ? 5 : 1;
     neighbors8(p).forEach(n => {
-        if (["dirt", "fertile_soil", "rich_soil", "loam", "mud"].includes(n.element) && chance(20)) changePixel(n, "sand");
-        if (n.element === "water" && chance(30)) changePixel(n, "steam");
-        if (["sandy_soil", "sand"].includes(n.element) && chance(10)) changePixel(n, "sandy_soil");
-        if (n.element === "sandy_soil" && chance(1)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "tree_seed");
+        if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+        if (["dirt", "fertile_soil", "rich_soil", "loam", "mud", "super_fertile_soil"].includes(n.element)) {
+            if (chance(growthChance * 0.9)) {
+                let r = Math.random();
+                if (r < 0.6) changePixel(n, "sand");
+                else if (r < 0.85) changePixel(n, "sandy_soil");
+                else changePixel(n, "rocky_soil");
+            }
         }
-        if (n.element?.includes("soil") && n.element !== "sand" && n.element !== "sandy_soil" && chance(15)) changePixel(n, "cracked_soil");
+        if (n.element === "water" && chance(growthChance * 0.5)) changePixel(n, "steam");
+        if (n.element?.includes("soil") && !["sand", "sandy_soil", "rocky_soil"].includes(n.element) && chance(growthChance * 0.3)) changePixel(n, "cracked_soil");
     });
-    let edgeNeighbors = neighbors8(p).filter(n => ["dirt", "fertile_soil", "rich_soil", "loam", "grass", "empty"].includes(n.element));
-    if (edgeNeighbors.length > 0 && chance(8)) {
-        let target = edgeNeighbors[randInt(0, edgeNeighbors.length - 1)];
-        if (target.element !== "desert_biome_seed") changePixel(target, "desert_biome_seed");
+    if (isActive) {
+        neighbors8(p).forEach(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+            if (n.element === "empty" || n.element === "air") { if (chance(growthChance * 0.05)) changePixel(n, "tree_seed"); }
+        });
     }
-    if (chance(5)) p.temp = Math.min(p.temp + 2, 60);
+    if (isActive && chance(spreadChance)) {
+        let candidates = neighbors8(p).filter(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return false;
+            return ["dirt", "fertile_soil", "rich_soil", "loam", "grass", "empty", "air"].includes(n.element) && n.element !== "desert_biome_seed";
+        });
+        if (candidates.length > 0 && chance(30)) { let target = candidates[randInt(0, candidates.length - 1)]; changePixel(target, "desert_biome_seed"); }
+    }
+    if (chance(3)) p.temp = Math.min(p.temp + 2, 60);
 });
 
-// Volcanic biome
+// ============================
+// VOLCANIC BIOME – Véletlenszerű, egyenetlen vulkán
+// ============================
 addTick("volcanic_biome_seed", function (p) {
-    if (!cd(p, "volcanic_grow", 3000)) return;
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (p.element !== "volcanic_biome_seed") return;
+    p._biomeAge = p._biomeAge || 0;
+    p._biomeAge++;
+    if (!cd(p, "volcanic_main", 3000)) return;
+    let isActive = p._biomeAge > 300;
+    let growthChance = isActive ? 18 : 5;
+    let spreadChance = isActive ? 3 : 0.5;
     neighbors8(p).forEach(n => {
-        if (["dirt", "sand", "fertile_soil", "rich_soil", "loam"].includes(n.element) && chance(20)) changePixel(n, "volcanic_soil");
-        if (["stone", "rock"].includes(n.element) && chance(5)) changePixel(n, "magma");
-        if (n.element === "empty" && chance(0.5)) changePixel(n, "lava");
-        if (n.element === "volcanic_soil" && chance(8)) {
-            let above = pixelMap?.[n.x]?.[n.y - 1];
-            if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "ash");
+        if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+        if (["dirt", "sand", "fertile_soil", "rich_soil", "loam"].includes(n.element) && chance(growthChance * 0.7)) {
+            let r = Math.random();
+            if (r < 0.5) changePixel(n, "volcanic_soil");
+            else if (r < 0.7) changePixel(n, "black_earth");
+            else if (r < 0.85) changePixel(n, "stone");
+            else changePixel(n, "rocky_soil");
         }
-        if (n.element === "volcanic_soil" && chance(5)) changePixel(n, "black_earth");
+        if (["stone", "rock"].includes(n.element) && chance(growthChance * 0.1)) changePixel(n, "magma");
     });
-    let edgeNeighbors = neighbors8(p).filter(n => ["dirt", "sand", "stone", "fertile_soil", "empty"].includes(n.element));
-    if (edgeNeighbors.length > 0 && chance(6)) {
-        let target = edgeNeighbors[randInt(0, edgeNeighbors.length - 1)];
-        if (target.element !== "volcanic_biome_seed") changePixel(target, "volcanic_biome_seed");
+    if (isActive) {
+        neighbors8(p).forEach(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return;
+            if (n.element === "empty" || n.element === "air") {
+                if (!chance(growthChance * 0.3)) return;
+                let r = Math.random();
+                if (r < 0.3) changePixel(n, "ash");
+                else if (r < 0.4) changePixel(n, "lava");
+            }
+            if (n.element === "volcanic_soil" && chance(5)) { let above = pixelMap?.[n.x]?.[n.y - 1]; if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "ash"); }
+        });
     }
-    if (chance(10)) p.temp = Math.min(p.temp + 5, 200);
-    if (chance(0.3)) {
-        let above = pixelMap?.[p.x]?.[p.y - 1];
-        if (above && (above.element === "empty" || above.element === "air")) changePixel(above, "ash");
+    if (isActive && chance(spreadChance)) {
+        let candidates = neighbors8(p).filter(n => {
+            if (!n || !pixelMap?.[n.x]?.[n.y]) return false;
+            return ["dirt", "sand", "stone", "fertile_soil", "empty", "air"].includes(n.element) && n.element !== "volcanic_biome_seed";
+        });
+        if (candidates.length > 0 && chance(25)) {
+            let target = candidates[randInt(0, candidates.length - 1)];
+            if (target.element === "empty" || target.element === "air") { let r = Math.random(); if (r < 0.5) changePixel(target, "ash"); else changePixel(target, "volcanic_biome_seed"); }
+            else changePixel(target, "volcanic_biome_seed");
+        }
     }
+    if (chance(5)) p.temp = Math.min(p.temp + 5, 200);
 });
 
-// Biome kölcsönhatások
+// ============================
+// BIOME KÖLCSÖNHATÁSOK (ritkább, hogy ne terhelje a renderelést)
+// ============================
 addTick("forest_biome_seed", function(p) {
-    neighbors(p).forEach(n => {
-        if (n.element === "desert_biome_seed" && chance(5)) changePixel(n, "forest_biome_seed");
-    });
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (!cd(p, "biome_fight", 15000)) return;
+    neighbors(p).forEach(n => { if (!n) return; if (n.element === "desert_biome_seed" && chance(10)) changePixel(n, "forest_biome_seed"); });
 });
 addTick("desert_biome_seed", function(p) {
-    neighbors(p).forEach(n => {
-        if (n.element === "swamp_biome_seed" && chance(5)) changePixel(n, "desert_biome_seed");
-    });
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (!cd(p, "biome_fight", 15000)) return;
+    neighbors(p).forEach(n => { if (!n) return; if (n.element === "swamp_biome_seed" && chance(10)) changePixel(n, "desert_biome_seed"); });
 });
 addTick("volcanic_biome_seed", function(p) {
-    neighbors(p).forEach(n => {
-        if (["forest_biome_seed", "swamp_biome_seed", "plains_biome_seed", "desert_biome_seed"].includes(n.element) && chance(8)) {
-            changePixel(n, "volcanic_biome_seed");
-        }
-    });
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (!cd(p, "biome_fight", 15000)) return;
+    neighbors(p).forEach(n => { if (!n) return; if (["forest_biome_seed", "swamp_biome_seed", "plains_biome_seed", "desert_biome_seed"].includes(n.element) && chance(15)) changePixel(n, "volcanic_biome_seed"); });
 });
 addTick("swamp_biome_seed", function(p) {
+    if (!p || !pixelMap?.[p.x]?.[p.y]) return;
+    if (!cd(p, "biome_fight", 15000)) return;
     neighbors(p).forEach(n => {
-        if (n.element === "plains_biome_seed" && chance(3)) {
-            neighbors8(p).forEach(n2 => {
-                if (n2.element === "loam" || n2.element === "peaty_soil") changePixel(n2, "super_fertile_soil");
-            });
-        }
+        if (!n) return;
+        if (n.element === "plains_biome_seed" && chance(5)) { neighbors8(p).forEach(n2 => { if (!n2) return; if (n2.element === "loam" || n2.element === "peaty_soil") changePixel(n2, "super_fertile_soil"); }); }
     });
 });
 
-console.log("✅ [13/14] Biomes loaded (Active Growth + Spreading)");
+console.log("✅ [13/14] Biomes loaded (Biztonságos renderelés + 10mp idézés + Random egyenetlen)");
 
 // =====================================================================
 // 14. INTEGRÁCIÓ + MIXING (JAVÍTVA)
 // =====================================================================
 
-// ---- TALAJKÉPZŐDÉS ----
 addReaction("dirt", "sand", { elem1: "sandy_soil" });
 addReaction("dirt", "water", { elem1: "mud" });
 addReaction("sand", "water", { elem1: "wet_sand" });
-
-// JAVÍTVA: humus + sand = dirt (nem sandy_soil)
 addReaction("humus", "sand", { elem1: "dirt" });
 addReaction("sand", "humus", { elem1: "dirt" });
-
-// humus + sandy_soil = fertile_soil (jobb talaj)
 addReaction("sandy_soil", "humus", { elem1: "fertile_soil" });
 addReaction("fertile_soil", "humus", { elem1: "rich_soil" });
 addReaction("rich_soil", "fertilizer_n", { elem1: "super_fertile_soil" });
 addReaction("rich_soil", "fertilizer_p", { elem1: "super_fertile_soil" });
 addReaction("rich_soil", "fertilizer_k", { elem1: "super_fertile_soil" });
-
-// ---- LOAM KÉPZŐDÉS ----
 addReaction("sand", "clay_soil", { elem1: "sandy_loam" });
 addReaction("sandy_soil", "clay_soil", { elem1: "sandy_loam" });
 addReaction("dirt", "clay_soil", { elem1: "loam" });
 addReaction("loam", "humus", { elem1: "fertile_soil" });
-
-// ---- SZERVES ANYAGOK JAVÍTJÁK A TALAJT ----
-// compost hatása
 addReaction("dirt", "compost", { elem1: "fertile_soil" });
 addReaction("sandy_soil", "compost", { elem1: "fertile_soil" });
 addReaction("eroded_soil", "compost", { elem1: "fertile_soil" });
 addReaction("depleted_soil", "compost", { elem1: "dirt" });
 addReaction("acidic_soil", "compost", { elem1: "neutral_soil" });
 addReaction("burnt_soil", "compost", { elem1: "dirt" });
-
-// manure hatása
 addReaction("dirt", "manure", { elem1: "fertile_soil" });
 addReaction("depleted_soil", "manure", { elem1: "fertile_soil" });
 addReaction("sandy_soil", "manure", { elem1: "fertile_soil" });
 addReaction("eroded_soil", "manure", { elem1: "fertile_soil" });
-
-// humus hatása
 addReaction("dirt", "humus", { elem1: "fertile_soil" });
 addReaction("sandy_soil", "humus", { elem1: "fertile_soil" });
 addReaction("eroded_soil", "humus", { elem1: "fertile_soil" });
 addReaction("burnt_soil", "humus", { elem1: "fertile_soil" });
 addReaction("depleted_soil", "humus", { elem1: "fertile_soil" });
-
-// peat hatása
 addReaction("dirt", "peat", { elem1: "fertile_soil" });
 addReaction("sandy_soil", "peat", { elem1: "peaty_soil" });
-
-// leaf_litter hatása
 addReaction("dirt", "leaf_litter", { elem1: "fertile_soil" });
 addReaction("eroded_soil", "leaf_litter", { elem1: "dirt" });
-
-// ---- NPK KEVEREDÉS ----
 addReaction("fertilizer_n", "fertilizer_p", { elem1: "fertilizer_k", elem2: "compost" });
 addReaction("compost", "fertilizer_n", { elem1: "humus" });
 addReaction("compost", "fertilizer_p", { elem1: "humus" });
 addReaction("compost", "fertilizer_k", { elem1: "humus" });
-
-// NPK javítja a talajt
 addReaction("dirt", "fertilizer_n", { elem1: "fertile_soil" });
 addReaction("dirt", "fertilizer_p", { elem1: "fertile_soil" });
 addReaction("dirt", "fertilizer_k", { elem1: "fertile_soil" });
 addReaction("fertile_soil", "fertilizer_n", { elem1: "rich_soil" });
 addReaction("fertile_soil", "fertilizer_p", { elem1: "rich_soil" });
 addReaction("fertile_soil", "fertilizer_k", { elem1: "rich_soil" });
-
-// ---- VÍZ KÖLCSÖNHATÁSOK ----
 addReaction("dirt", "water", { elem1: "mud" });
 addReaction("mud", "sand", { elem1: "sandy_soil" });
 addReaction("mud", "compost", { elem1: "fertile_soil" });
 addReaction("waterlogged_soil", "sand", { elem1: "mud" });
-
-// ---- GILISZTA KÖLCSÖNHATÁSOK ----
 addReaction("dirt", "earthworm", { elem1: "fertile_soil" });
 addReaction("compost", "earthworm", { elem1: "humus" });
 addReaction("depleted_soil", "earthworm", { elem1: "dirt" });
-
-// ---- MIKORRHIZA KÖLCSÖNHATÁSOK ----
 addReaction("fertile_soil", "mycorrhiza", { elem1: "rich_soil" });
 addReaction("compost", "mycorrhiza", { elem1: "humus" });
 addReaction("dirt", "mycorrhiza", { elem1: "fertile_soil" });
-
-// ---- pH RENDSZER KEVEREDÉS (JAVÍTVA) ----
-// lime javítja a pH-t
 addReaction("acidic_soil", "lime", { elem1: "neutral_soil" });
 addReaction("alkaline_soil", "fertilizer_n", { elem1: "neutral_soil" });
 addReaction("alkaline_soil", "compost", { elem1: "neutral_soil" });
 addReaction("acidic_soil", "ash", { elem1: "neutral_soil" });
-
-// lime + savas talaj = jobb talaj
-addReaction("acidic_soil", "lime", { elem1: "fertile_soil" }); // lime közvetlenül javítja
-// Ez ütközhet, úgyhogy maradjon a neutral_soil
-
-// ---- ÉGÉS UTÁNI TALAJ ----
+addReaction("acidic_soil", "lime", { elem1: "fertile_soil" });
 addReaction("ash", "water", { elem1: "dirt" });
 addReaction("burnt_soil", "compost", { elem1: "dirt" });
 addReaction("burnt_soil", "humus", { elem1: "fertile_soil" });
 addReaction("charcoal", "dirt", { elem1: "fertile_soil" });
 addReaction("ash", "compost", { elem1: "dirt" });
-
-// ---- NÖVÉNYI MARADVÁNYOK ----
 addReaction("plant", "water", { elem1: "compost" });
 addReaction("wheat_head", "water", { elem1: "compost" });
 addReaction("tomato_fruit", "water", { elem1: "compost" });
 addReaction("potato_tuber", "water", { elem1: "compost" });
 addReaction("tree_leaves", "water", { elem1: "leaf_litter" });
-
-// ---- SPECIÁLIS INTEGRÁCIÓK ----
 addReaction("living_soil", "water", { elem1: "super_fertile_soil" });
 addReaction("old_growth_soil", "compost", { elem1: "super_fertile_soil" });
 addReaction("irradiated_soil", "lime", { elem1: "depleted_soil" });
 addReaction("fertile_volcanic_soil", "humus", { elem1: "super_fertile_soil" });
-
-// ---- BIOME INTEGRÁCIÓ ----
 addReaction("forest_soil", "water", { elem1: "mud" });
 addReaction("peaty_soil", "fire", { elem1: "burnt_soil" });
 addReaction("volcanic_soil", "water", { elem1: "stone" });
 addReaction("black_earth", "compost", { elem1: "super_fertile_soil" });
-
-// ---- GÉP INTEGRÁCIÓ ----
 addReaction("composter", "plant", { elem1: "compost" });
 addReaction("irrigation_system", "water", { elem1: "irrigation_system" });
 
-// =============================
-// ÉVSZAK FRISSÍTÉS (globális)
-// =============================
 addTick("dirt", function (p) {
     if (!cd(p, "season_update", 10000)) return;
     updateSeason();
@@ -1049,15 +1020,15 @@ console.log("  2. Soil Types          ✅");
 console.log("  3. Organic + NPK       ✅");
 console.log("  4. Decomposition       ✅");
 console.log("  5. Plants              ✅");
-console.log("  6. Biology             ✅ (Mycorrhiza: nő + tolja a földet)");
+console.log("  6. Biology             ✅");
 console.log("  7. Mutations           ✅");
 console.log("  8. Temperature         ✅");
 console.log("  9. pH System           ✅");
 console.log(" 10. Weather             ✅");
 console.log(" 11. Erosion             ✅");
 console.log(" 12. Machines            ✅");
-console.log(" 13. Biomes              ✅ (Aktív növesztés + terjedés)");
-console.log(" 14. Integration+Mixing  ✅ (Javított mixing)");
+console.log(" 13. Biomes              ✅ (Új: 10mp idézés + egyenetlen)");
+console.log(" 14. Integration+Mixing  ✅");
 console.log("══════════════════════════════════════");
 console.log("🌱 The soil is alive. The ecosystem breathes.");
 console.log("══════════════════════════════════════");
