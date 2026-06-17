@@ -1,5 +1,6 @@
 // =====================================================================
 // 🌱 SOIL-MOD v5.2 – STABILIZED RENDER (No SwapPixel, Safe Ticks)
+// FIXED: Integration + Mixing – nincs ütközés alap reakciókkal
 // =====================================================================
 
 console.log("🌱 SOIL-MOD v5.2 LOADING...");
@@ -21,11 +22,10 @@ function safeElement(name, data) {
     }
 }
 
-// BIZTONSÁGOS PIXEL CSERE – ellenőrzi a célpontot
 function changePixelSafe(p, newElement) {
     if (!p || !newElement || !elements[newElement]) return false;
     if (!pixelMap || !pixelMap[p.x] || !pixelMap[p.x][p.y]) return false;
-    if (pixelMap[p.x][p.y].element === newElement) return false; // már az
+    if (pixelMap[p.x][p.y].element === newElement) return false;
     pixelMap[p.x][p.y].element = newElement;
     pixelMap[p.x][p.y].color = elements[newElement].color;
     return true;
@@ -37,9 +37,6 @@ function changePixel(p, newElement) {
         pixelMap[p.x][p.y].color = elements[newElement].color;
     }
 }
-
-// SWAP PIXEL TILTVA – renderelési bugot okoz!
-// function swapPixel(p1, p2) { ... } // NEM HASZNÁLJUK!
 
 function cd(p, key, ms) {
     p._cd = p._cd || {};
@@ -105,7 +102,7 @@ function chance(percent) {
     return Math.random() * 100 < percent;
 }
 
-console.log("✅ [1/14] Core Helpers loaded (SwapPixel ELTÁVOLÍTVA)");
+console.log("✅ [1/14] Core Helpers loaded");
 
 // =====================================================================
 // 2. TALAJTÍPUSOK
@@ -343,21 +340,18 @@ addTick("mycorrhiza", function (p) {
         "leaf_litter", "worm_tunnel"
     ];
 
-    // 1. NÖVEKEDÉS ÜRES HELYRE (biztonságos)
     let emptyNeighbors = neighbors(p).filter(n => n.element === "empty" || n.element === "air");
     if (emptyNeighbors.length > 0 && chance(30)) {
         let target = emptyNeighbors[randInt(0, emptyNeighbors.length - 1)];
-        changePixel(target, "mycorrhiza"); // csak simán nő
+        changePixel(target, "mycorrhiza");
     }
 
-    // 2. TERJEDÉS TALAJBA (régi helyén mycorrhiza marad, talajt NEM tolja arrébb)
     let soilNeighbors = neighbors(p).filter(n => allSoils.includes(n.element) && n.element !== "mycorrhiza");
     if (soilNeighbors.length > 0 && chance(15)) {
         let target = soilNeighbors[randInt(0, soilNeighbors.length - 1)];
-        changePixel(target, "mycorrhiza"); // benövi a talajt, a régi mycorrhiza is marad
+        changePixel(target, "mycorrhiza");
     }
 
-    // 3. NÖVÉNYEK GYORSÍTÁSA
     neighbors(p).forEach(n => {
         if (n.element?.includes("seed") || n.element?.includes("sprout") ||
             n.element?.includes("root") || n.element?.includes("stem") ||
@@ -370,10 +364,9 @@ addTick("mycorrhiza", function (p) {
 console.log("✅ [6/14] Biology loaded (Mycorrhiza: STABIL – nincs swap)");
 
 // =====================================================================
-// 7-14. RÖVIDÍTVE A STABILITÁS MIATT (minden korábbi funkció megvan)
+// 7. MUTÁCIÓK
 // =====================================================================
 
-// 7. MUTÁCIÓK
 addReaction("dirt", "radiation", { elem1: "irradiated_soil" });
 addReaction("fertile_soil", "radiation", { elem1: "irradiated_soil" });
 addReaction("rich_soil", "radiation", { elem1: "irradiated_soil" });
@@ -387,24 +380,28 @@ addTick("forest_soil", function (p) { if (neighbors(p).find(x => x.element === "
 addReaction("volcanic_soil", "water", { elem1: "fertile_volcanic_soil" });
 console.log("✅ [7/14] Mutations loaded");
 
+// =====================================================================
 // 8. HŐMÉRSÉKLET
+// =====================================================================
+
 ["humus", "compost", "manure", "leaf_litter", "peat"].forEach(name => { if (elements[name]) { elements[name].tempHigh = 200; elements[name].stateHigh = "fire"; elements[name].burn = 80; } });
 ["dirt", "sandy_soil", "fertile_soil", "rich_soil", "super_fertile_soil", "forest_soil", "loam", "clay_soil"].forEach(name => { if (elements[name]) { elements[name].tempHigh = 1200; elements[name].stateHigh = "molten_silicate"; } });
-addReaction("humus", "fire", { elem1: "charcoal", elem2: "ash" });
-addReaction("compost", "fire", { elem1: "charcoal", elem2: "ash" });
-addReaction("manure", "fire", { elem1: "charcoal", elem2: "ash" });
-addReaction("leaf_litter", "fire", { elem1: "charcoal", elem2: "ash" });
-addReaction("charcoal", "fire", { elem1: "ash" });
 ["super_fertile_soil", "fertile_soil", "rich_soil", "forest_soil", "humus"].forEach(name => { addTick(name, function (p) { if (p.temp > 500 && chance(10)) changePixel(p, "burnt_soil"); }); });
 console.log("✅ [8/14] Temperature System loaded");
 
-// 9. pH
+// =====================================================================
+// 9. pH RENDSZER
+// =====================================================================
+
 addTick("acidic_soil", function (p) { if (neighbors(p).find(x => x.element === "lime") && chance(10)) changePixel(p, "neutral_soil"); });
 addTick("alkaline_soil", function (p) { if (neighbors(p).find(x => x.element === "fertilizer_n") && chance(5)) changePixel(p, "neutral_soil"); });
 addTick("super_fertile_soil", function (p) { if (!cd(p, "ph_check", 10000)) return; let fertCount = neighbors(p).filter(x => x.element?.includes("fertilizer")).length; if (fertCount >= 2 && chance(fertCount * 2)) changePixel(p, "acidic_soil"); });
 console.log("✅ [9/14] pH System loaded");
 
+// =====================================================================
 // 10. IDŐJÁRÁS
+// =====================================================================
+
 safeElement("rain_cloud", { color: "#8899aa", behavior: behaviors.GAS, category: "weather" });
 safeElement("storm_cloud", { color: "#445566", behavior: behaviors.GAS, category: "weather" });
 safeElement("acid_rain_cloud", { color: "#88aa66", behavior: behaviors.GAS, category: "weather" });
@@ -419,7 +416,10 @@ window._soilSeason = window._soilSeason || "spring"; window._soilSeasonTimer = w
 function updateSeason() { window._soilSeasonTimer++; if (window._soilSeasonTimer > 50000) { window._soilSeasonTimer = 0; let seasons = ["spring", "summer", "autumn", "winter"]; let idx = seasons.indexOf(window._soilSeason); window._soilSeason = seasons[(idx + 1) % 4]; } }
 console.log("✅ [10/14] Weather System loaded");
 
+// =====================================================================
 // 11. ERÓZIÓ
+// =====================================================================
+
 addTick("moist_soil", function (p) { if (!cd(p, "erosion", 20000)) return; if (chance(0.5)) changePixel(p, "eroded_soil"); });
 ["dirt", "fertile_soil", "rich_soil", "super_fertile_soil", "sandy_soil"].forEach(name => { addTick(name, function (p) { let waterNeighbor = neighbors(p).find(x => x.element === "water"); if (waterNeighbor && chance(0.3)) changePixel(p, "eroded_soil"); }); });
 addTick("eroded_soil", function (p) { if (!cd(p, "erode_further", 30000)) return; if (chance(2)) changePixel(p, "depleted_soil"); });
@@ -428,7 +428,10 @@ addTick("compacted_soil", function (p) { if (!cd(p, "crack", 40000)) return; if 
 ["dirt", "fertile_soil", "rich_soil", "clay_soil"].forEach(name => { addTick(name, function (p) { let waterCount = neighbors(p).filter(x => x.element === "water").length; if (waterCount >= 3 && chance(waterCount * 2)) changePixel(p, "waterlogged_soil"); }); });
 console.log("✅ [11/14] Erosion System loaded");
 
+// =====================================================================
 // 12. GÉPEK
+// =====================================================================
+
 safeElement("composter", { color: "#8b5a2b", behavior: behaviors.WALL, category: "machines" });
 safeElement("irrigation_system", { color: "#4488cc", behavior: behaviors.WALL, category: "machines" });
 safeElement("tiller", { color: "#888888", behavior: behaviors.WALL, category: "machines" });
@@ -449,12 +452,11 @@ safeElement("plains_biome_seed", { color: "#8aaa4a", behavior: behaviors.WALL, c
 safeElement("desert_biome_seed", { color: "#d4c89a", behavior: behaviors.WALL, category: "biomes" });
 safeElement("volcanic_biome_seed", { color: "#4a1a0a", behavior: behaviors.WALL, category: "biomes" });
 
-// Forest (lassított)
 addTick("forest_biome_seed", function (p) {
     if (!p || !pixelMap?.[p.x]?.[p.y]) return;
     if (p.element !== "forest_biome_seed") return;
     p._biomeAge = p._biomeAge || 0; p._biomeAge++;
-    if (!cd(p, "forest_main", 4000)) return; // 4mp cooldown
+    if (!cd(p, "forest_main", 4000)) return;
     let isActive = p._biomeAge > 200;
     let gC = isActive ? 15 : 5;
     neighbors8(p).forEach(n => {
@@ -464,7 +466,7 @@ addTick("forest_biome_seed", function (p) {
     });
     if (isActive && chance(2)) { let nn = neighbors(p).filter(n => n && ["dirt", "sand"].includes(n.element)); if (nn.length > 0) changePixel(nn[0], "forest_biome_seed"); }
 });
-// Swamp
+
 addTick("swamp_biome_seed", function (p) {
     if (!p || !pixelMap?.[p.x]?.[p.y]) return;
     if (p.element !== "swamp_biome_seed") return;
@@ -479,7 +481,7 @@ addTick("swamp_biome_seed", function (p) {
     });
     if (isActive && chance(2)) { let nn = neighbors(p).filter(n => n && ["dirt", "sand"].includes(n.element)); if (nn.length > 0) changePixel(nn[0], "swamp_biome_seed"); }
 });
-// Plains
+
 addTick("plains_biome_seed", function (p) {
     if (!p || !pixelMap?.[p.x]?.[p.y]) return;
     if (p.element !== "plains_biome_seed") return;
@@ -494,7 +496,7 @@ addTick("plains_biome_seed", function (p) {
     });
     if (isActive && chance(2)) { let nn = neighbors(p).filter(n => n && ["dirt", "sand"].includes(n.element)); if (nn.length > 0) changePixel(nn[0], "plains_biome_seed"); }
 });
-// Desert
+
 addTick("desert_biome_seed", function (p) {
     if (!p || !pixelMap?.[p.x]?.[p.y]) return;
     if (p.element !== "desert_biome_seed") return;
@@ -509,7 +511,7 @@ addTick("desert_biome_seed", function (p) {
     });
     if (isActive && chance(2)) { let nn = neighbors(p).filter(n => n && ["dirt", "sand"].includes(n.element)); if (nn.length > 0) changePixel(nn[0], "desert_biome_seed"); }
 });
-// Volcanic
+
 addTick("volcanic_biome_seed", function (p) {
     if (!p || !pixelMap?.[p.x]?.[p.y]) return;
     if (p.element !== "volcanic_biome_seed") return;
@@ -528,59 +530,129 @@ addTick("volcanic_biome_seed", function (p) {
 console.log("✅ [13/14] Biomes loaded (STABILIZÁLT)");
 
 // =====================================================================
-// 14. INTEGRÁCIÓ + MIXING
+// 14. INTEGRÁCIÓ + MIXING (VÉGLEGES – NINCS ALAP ÜTKÖZÉS)
 // =====================================================================
 
+// ---- ALAP REAKCIÓK (NEM RAKJUK BE): ----
+// dirt + water = mud ❌
+// sand + water = wet_sand ❌
+// charcoal + fire = ash ❌
+
+// ---- MOD ELEMEK ÉGÉSE ----
+addReaction("humus", "fire", { elem1: "charcoal", elem2: "ash" });
+addReaction("compost", "fire", { elem1: "charcoal", elem2: "ash" });
+addReaction("manure", "fire", { elem1: "charcoal", elem2: "ash" });
+addReaction("leaf_litter", "fire", { elem1: "charcoal", elem2: "ash" });
+
+// ---- MOD ELEMEK SUGÁRZÁSA ----
+addReaction("fertile_soil", "radiation", { elem1: "irradiated_soil" });
+addReaction("rich_soil", "radiation", { elem1: "irradiated_soil" });
+
+// ---- MOD ALAP REAKCIÓK (mert ezek az elemek NINCSENEK a játékban) ----
 addReaction("dirt", "sand", { elem1: "sandy_soil" });
+addReaction("plant", "water", { elem1: "compost" });
+
+// ---- HUMUS + HOMOK = DIRT ----
 addReaction("humus", "sand", { elem1: "dirt" });
 addReaction("sand", "humus", { elem1: "dirt" });
+
+// ---- HUMUS JAVÍTJA A TALAJT ----
 addReaction("sandy_soil", "humus", { elem1: "fertile_soil" });
 addReaction("fertile_soil", "humus", { elem1: "rich_soil" });
 addReaction("rich_soil", "fertilizer_n", { elem1: "super_fertile_soil" });
 addReaction("rich_soil", "fertilizer_p", { elem1: "super_fertile_soil" });
 addReaction("rich_soil", "fertilizer_k", { elem1: "super_fertile_soil" });
+
+// ---- LOAM KÉPZŐDÉS ----
+addReaction("sand", "clay_soil", { elem1: "sandy_loam" });
+addReaction("dirt", "clay_soil", { elem1: "loam" });
+
+// ---- SZERVES ANYAGOK JAVÍTJÁK A TALAJT ----
 addReaction("dirt", "compost", { elem1: "fertile_soil" });
 addReaction("eroded_soil", "compost", { elem1: "fertile_soil" });
 addReaction("depleted_soil", "compost", { elem1: "dirt" });
 addReaction("burnt_soil", "compost", { elem1: "dirt" });
 addReaction("acidic_soil", "compost", { elem1: "neutral_soil" });
+
 addReaction("dirt", "manure", { elem1: "fertile_soil" });
 addReaction("depleted_soil", "manure", { elem1: "fertile_soil" });
+
 addReaction("dirt", "humus", { elem1: "fertile_soil" });
 addReaction("burnt_soil", "humus", { elem1: "fertile_soil" });
+addReaction("depleted_soil", "humus", { elem1: "fertile_soil" });
+addReaction("eroded_soil", "humus", { elem1: "fertile_soil" });
+
 addReaction("dirt", "peat", { elem1: "fertile_soil" });
 addReaction("dirt", "leaf_litter", { elem1: "fertile_soil" });
+
+// ---- NPK MŰTRÁGYÁK ----
 addReaction("dirt", "fertilizer_n", { elem1: "fertile_soil" });
+addReaction("dirt", "fertilizer_p", { elem1: "fertile_soil" });
+addReaction("dirt", "fertilizer_k", { elem1: "fertile_soil" });
 addReaction("fertile_soil", "fertilizer_n", { elem1: "rich_soil" });
+addReaction("fertile_soil", "fertilizer_p", { elem1: "rich_soil" });
+addReaction("fertile_soil", "fertilizer_k", { elem1: "rich_soil" });
+
+// ---- GILISZTA ----
 addReaction("dirt", "earthworm", { elem1: "fertile_soil" });
 addReaction("compost", "earthworm", { elem1: "humus" });
+addReaction("depleted_soil", "earthworm", { elem1: "dirt" });
+
+// ---- MIKORRHIZA ----
 addReaction("fertile_soil", "mycorrhiza", { elem1: "rich_soil" });
 addReaction("compost", "mycorrhiza", { elem1: "humus" });
 addReaction("dirt", "mycorrhiza", { elem1: "fertile_soil" });
+
+// ---- pH RENDSZER ----
 addReaction("acidic_soil", "lime", { elem1: "neutral_soil" });
 addReaction("alkaline_soil", "compost", { elem1: "neutral_soil" });
+addReaction("acidic_soil", "ash", { elem1: "neutral_soil" });
+
+// ---- ÉGÉS UTÁNI TALAJ ----
 addReaction("ash", "water", { elem1: "dirt" });
 addReaction("burnt_soil", "compost", { elem1: "dirt" });
+addReaction("burnt_soil", "humus", { elem1: "fertile_soil" });
 addReaction("charcoal", "dirt", { elem1: "fertile_soil" });
-addReaction("plant", "water", { elem1: "compost" });
+
+// ---- NÖVÉNYI MARADVÁNYOK ----
 addReaction("wheat_head", "water", { elem1: "compost" });
 addReaction("tomato_fruit", "water", { elem1: "compost" });
 addReaction("potato_tuber", "water", { elem1: "compost" });
 addReaction("tree_leaves", "water", { elem1: "leaf_litter" });
+
+// ---- SPECIÁLIS TALAJOK ----
 addReaction("living_soil", "water", { elem1: "super_fertile_soil" });
 addReaction("old_growth_soil", "compost", { elem1: "super_fertile_soil" });
 addReaction("irradiated_soil", "lime", { elem1: "depleted_soil" });
 addReaction("fertile_volcanic_soil", "humus", { elem1: "super_fertile_soil" });
+
+// ---- BIOME TALAJOK ----
 addReaction("forest_soil", "water", { elem1: "mud" });
 addReaction("peaty_soil", "fire", { elem1: "burnt_soil" });
 addReaction("volcanic_soil", "water", { elem1: "stone" });
 addReaction("black_earth", "compost", { elem1: "super_fertile_soil" });
+
+// ---- GÉPEK ----
 addReaction("composter", "plant", { elem1: "compost" });
 
+// ---- KOMPAKCIÓ ----
+addReaction("fertile_soil", "stone", { elem1: "compacted_soil" });
+addReaction("rich_soil", "stone", { elem1: "compacted_soil" });
+addReaction("super_fertile_soil", "stone", { elem1: "compacted_soil" });
+
+// ---- EGYÉB ----
+addReaction("volcanic_soil", "water", { elem1: "fertile_volcanic_soil" });
+
+// =============================
+// ÉVSZAK FRISSÍTÉS
+// =============================
 addTick("dirt", function (p) { if (!cd(p, "season_update", 10000)) return; updateSeason(); });
 
-console.log("✅ [14/14] Integration + Mixing loaded");
+console.log("✅ [14/14] Integration + Mixing loaded (VÉGLEGES – nincs ütközés)");
 
+// =====================================================================
+// 🎉 SOIL-MOD v5.2 TELJESEN BETÖLTVE
+// =====================================================================
 console.log("══════════════════════════════════════");
 console.log("🌍 SOIL-MOD v5.2 STABILIZED – READY");
 console.log("══════════════════════════════════════");
